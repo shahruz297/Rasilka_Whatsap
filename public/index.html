@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — WhatsApp Рассылка</title>
+  <meta name="description" content="WhatsApp рассылка жүйесі — клиенттерге хабарлама жіберу платформасы"/>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size:1.1em;vertical-align:middle;"></i></div>
+    <div class="logo-text">
+      <span class="logo-title">WA Рассылка</span>
+      <span class="logo-sub">Платформа WhatsApp</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-item active" id="nav-dashboard">
+      <span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size:1.1em;vertical-align:middle;"></i></span> Dashboard
+    </a>
+    <a href="/settings" class="nav-item" id="nav-settings">
+      <span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size:1.1em;vertical-align:middle;"></i></span> WhatsApp
+    </a>
+    <a href="/clients" class="nav-item" id="nav-clients">
+      <span class="nav-icon"><i class="ph-duotone ph-users" style="font-size:1.1em;vertical-align:middle;"></i></span> Клиенты
+    </a>
+    <a href="/send" class="nav-item" id="nav-send">
+      <span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size:1.1em;vertical-align:middle;"></i></span> Отправить рассылку
+    </a>
+    <a href="/campaigns" class="nav-item" id="nav-campaigns">
+      <span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size:1.1em;vertical-align:middle;"></i></span> История
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="ws-status">
+      <div class="ws-dot" id="wsDot"></div>
+      <span id="wsLabel">Подключение...</span>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><i class="ph-bold ph-list"></i></button>
+      <div>
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-sub" id="currentDate"></div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size:1.1em;vertical-align:middle;"></i></button>
+      <a href="/send" class="btn btn-primary">
+        <span><i class="ph-duotone ph-rocket-launch" style="font-size:1.1em;vertical-align:middle;"></i></span> Отправить
+      </a>
+    </div>
+  </header>
+
+  <div class="page-content">
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card" style="--accent-color:#10b981">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.1)"><i class="ph-duotone ph-users" style="font-size:1.1em;vertical-align:middle;color:var(--green)"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="statClients">—</div>
+          <div class="stat-label">Всего клиентов</div>
+        </div>
+      </div>
+      <div class="stat-card" style="--accent-color:#3b82f6">
+        <div class="stat-icon" style="background:rgba(59,130,246,0.1)"><i class="ph-duotone ph-clipboard-text" style="font-size:1.1em;vertical-align:middle;color:var(--blue)"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="statCampaigns">—</div>
+          <div class="stat-label">Всего кампаний</div>
+        </div>
+      </div>
+      <div class="stat-card" style="--accent-color:#10b981">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.1)"><i class="ph-duotone ph-check-circle" style="font-size:1.1em;vertical-align:middle;color:var(--green)"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="statToday">—</div>
+          <div class="stat-label">Отправлено сегодня</div>
+        </div>
+      </div>
+      <div class="stat-card" style="--accent-color:#f59e0b">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.1)"><i class="ph-duotone ph-lightning" style="font-size:1.1em;vertical-align:middle;color:var(--yellow)"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="statActive">0</div>
+          <div class="stat-label">Активные отправки</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:22px">
+      <!-- Chart -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="ph-duotone ph-trend-up" style="font-size:1.1em;vertical-align:middle;"></i> Активность за 7 дней</div>
+            <div class="card-sub">Отправленные сообщения</div>
+          </div>
+        </div>
+        <div id="chartContainer" style="height:180px;display:flex;align-items:flex-end;gap:8px;padding:0 4px"></div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="ph-duotone ph-lightning" style="font-size:1.1em;vertical-align:middle;"></i> Быстрые действия</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <a href="/send" class="btn btn-primary btn-lg" style="justify-content:center">
+            <span><i class="ph-duotone ph-rocket-launch" style="font-size:1.1em;vertical-align:middle;"></i></span> Новая рассылка
+          </a>
+          <a href="/clients" class="btn btn-secondary btn-lg" style="justify-content:center">
+            <span><i class="ph-duotone ph-plus-circle" style="font-size:1.1em;vertical-align:middle;"></i></span> Добавить клиента
+          </a>
+          <a href="/campaigns" class="btn btn-secondary btn-lg" style="justify-content:center">
+            <span><i class="ph-duotone ph-clipboard-text" style="font-size:1.1em;vertical-align:middle;"></i></span> История кампаний
+          </a>
+          <a href="/settings" class="btn btn-secondary btn-lg" style="justify-content:center">
+            <span><i class="ph-duotone ph-whatsapp-logo" style="font-size:1.1em;vertical-align:middle;"></i></span> WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent campaigns -->
+    <div class="card" style="margin-top:22px">
+      <div class="card-header">
+        <div>
+          <div class="card-title"><i class="ph-duotone ph-clock" style="font-size:1.1em;vertical-align:middle;"></i> Последние кампании</div>
+          <div class="card-sub">Последние 5 рассылок</div>
+        </div>
+        <a href="/campaigns" class="btn btn-ghost btn-sm">Все →</a>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="recentTable">
+          <thead>
+            <tr>
+              <th>Название кампании</th>
+              <th>Статус</th>
+              <th>Отправлено</th>
+              <th>Ошибки</th>
+              <th>День</th>
+            </tr>
+          </thead>
+          <tbody id="recentBody">
+            <tr><td colspan="5"><div class="empty-state"><div class="empty-icon"><i class="ph-duotone ph-tray" style="font-size:1.1em;vertical-align:middle;"></i></div><div class="empty-title">Нет кампаний</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="/js/app.js"></script>
+<script>
+  // Date
+  document.getElementById('currentDate').textContent = new Date().toLocaleDateString('ru-RU', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  // Load stats
+  async function loadDashboard() {
+    try {
+      const res = await fetch('/api/campaigns/stats/dashboard');
+      const data = await res.json();
+      document.getElementById('statClients').textContent = data.totalClients;
+      document.getElementById('statCampaigns').textContent = data.totalCampaigns;
+      document.getElementById('statToday').textContent = data.todaySent || 0;
+      renderChart(data.chartData || []);
+      renderRecent(data.recentCampaigns || []);
+    } catch(e) { console.error(e); }
+  }
+
+  function renderChart(data) {
+    const c = document.getElementById('chartContainer');
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const found = data.find(item => {
+        const itemDate = new Date(item.date);
+        return itemDate.getFullYear() === d.getFullYear() && itemDate.getMonth() === d.getMonth() && itemDate.getDate() === d.getDate();
+      });
+      last7Days.push({ date: d, sent: found ? (found.sent || 0) : 0 });
+    }
+    const max = Math.max(...last7Days.map(d => d.sent), 1);
+    c.innerHTML = last7Days.map(d => {
+      const h = Math.max((d.sent / max) * 130, 4);
+      const dateStr = d.date.toLocaleDateString('ru-RU', {month:'short',day:'numeric'});
+      const valColor = d.sent > 0 ? 'var(--green)' : 'var(--text-muted)';
+      const bgOpacity = d.sent > 0 ? '1' : '0.15';
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px">
+        <div style="font-size:11px;color:${valColor};font-weight:700">${d.sent}</div>
+        <div style="width:100%;max-width:36px;height:${h}px;background:var(--gradient-green);border-radius:8px 8px 2px 2px;opacity:${bgOpacity};transition:all 0.5s ease"></div>
+        <div style="font-size:10px;color:var(--text-muted);white-space:nowrap">${dateStr}</div>
+      </div>`;
+    }).join('');
+  }
+
+  const statusMap = {
+    completed: ['badge-green','<i class="ph-duotone ph-check-circle" style="font-size:1.1em;vertical-align:middle;color:var(--green);"></i> Завершено'],
+    running: ['badge-blue','<i class="ph-duotone ph-hourglass-medium" style="font-size:1.1em;vertical-align:middle;"></i> Отправляется'],
+    cancelled: ['badge-yellow','<i class="ph-duotone ph-stop-circle" style="font-size:1.1em;vertical-align:middle;"></i> Остановлено'],
+    pending: ['badge-gray','<i class="ph-duotone ph-clock" style="font-size:1.1em;vertical-align:middle;"></i> Ожидает'],
+    failed: ['badge-red','<i class="ph-duotone ph-x-circle" style="font-size:1.1em;vertical-align:middle;color:var(--red);"></i> Ошибка']
+  };
+
+  function renderRecent(list) {
+    const body = document.getElementById('recentBody');
+    if (!list.length) return;
+    body.innerHTML = list.map(c => {
+      const [badgeClass, label] = statusMap[c.status] || statusMap.pending;
+      const date = new Date(c.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      return `<tr>
+        <td><strong>${c.name}</strong></td>
+        <td><span class="badge ${badgeClass}">${label}</span></td>
+        <td><span style="color:var(--green);font-weight:700">${c.sent_count}</span> / ${c.total_count}</td>
+        <td><span style="color:var(--red)">${c.failed_count}</span></td>
+        <td style="color:var(--text-muted)">${date}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  loadDashboard();
+  setInterval(loadDashboard, 15000);
+</script>
+</body>
+</html>

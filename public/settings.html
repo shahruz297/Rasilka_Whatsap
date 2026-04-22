@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WhatsApp — WA Рассылка</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></div>
+    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub">Платформа WhatsApp</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size: 1.1em; vertical-align: middle;"></i></span> Dashboard</a>
+    <a href="/settings" class="nav-item active"><span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp</a>
+    <a href="/clients" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-users" style="font-size: 1.1em; vertical-align: middle;"></i></span> Клиенты</a>
+    <a href="/send" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отправить рассылку</a>
+    <a href="/campaigns" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size: 1.1em; vertical-align: middle;"></i></span> История</a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><i class="ph-bold ph-list"></i></button>
+      <div>
+        <div class="topbar-title"><i class="ph-duotone ph-whatsapp-logo" style="font-size: 1.1em; vertical-align: middle;"></i> WhatsApp</div>
+        <div class="topbar-sub">Подключение и параметры отправки</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" style="font-size: 16px; padding: 6px 10px;" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size: 1.1em; vertical-align: middle;"></i></button>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(400px, 1fr));gap:24px;align-items:start">
+      
+      <!-- Left Column: API Settings -->
+      <div style="display:flex;flex-direction:column;gap:24px">
+        
+
+        <!-- WhatsApp Web (QR Code) -->
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+            <div style="width:50px;height:50px;background:linear-gradient(135deg,#25D366,#128C7E);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:var(--shadow-green)"><i class="ph-duotone ph-qr-code" style="font-size: 1.1em; vertical-align: middle;"></i></div>
+            <div>
+              <div class="card-title">Подключение WhatsApp</div>
+              <div class="card-sub">Управление состоянием сессии</div>
+            </div>
+            <div id="waStatusBadge" style="margin-left:auto">
+              <span class="badge badge-gray"><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Загрузка...</span>
+            </div>
+          </div>
+
+          <div id="qrArea" style="display:none; text-align:center; padding: 20px; background:var(--bg-secondary); border-radius:var(--radius); border:1px dashed var(--border); margin-bottom: 20px;">
+             <p style="color:var(--text-secondary); margin-bottom: 12px; font-size: 14px;">Отсканируйте QR-код для подключения:</p>
+             <img id="qrImage" src="" alt="QR Code" style="max-width: 250px; height: 250px; border-radius: 8px; background: #fff; padding: 10px;" />
+          </div>
+
+          <div id="profileArea" style="display:none; padding: 16px; background:rgba(37,211,102,0.08); border:1px solid rgba(37,211,102,0.2); border-radius:var(--radius); margin-bottom: 20px; align-items:center; gap: 16px;">
+             <div class="avatar" style="width: 48px; height: 48px; font-size: 24px;"><i class="ph-duotone ph-user"></i></div>
+             <div>
+                <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);" id="profileName">Loading...</div>
+                <div style="font-size: 13px; color: var(--green); margin-top: 4px;" id="profilePhone"></div>
+             </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="connectWhatsApp()" id="connectBtn">
+              <span><i class="ph-duotone ph-plug" style="font-size: 1.1em; vertical-align: middle;"></i></span> Подключить
+            </button>
+            <button class="btn btn-danger" style="flex:1;justify-content:center; display:none;" onclick="disconnectWhatsApp()" id="disconnectBtn">
+              <span><i class="ph-duotone ph-sign-out" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отключить
+            </button>
+            <div id="qrWaitingBtn" class="btn btn-secondary" style="flex:1;justify-content:center; opacity:0.7; cursor:default; display:none;">
+              <span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> Ожидание...
+            </div>
+          </div>
+
+          <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Settings -->
+      <div style="display:flex;flex-direction:column;gap:24px">
+        
+        <!-- Sending intervals -->
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+            <div style="width:50px;height:50px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 15px rgba(245,158,11,0.2)"><i class="ph-duotone ph-timer" style="font-size: 1.1em; vertical-align: middle;"></i></div>
+            <div>
+              <div class="card-title">Параметры отправки</div>
+              <div class="card-sub">Рекомендуемые настройки во избежание бана</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Размер партии (сообщений за раз)</label>
+            <input type="number" class="form-input" id="batchSize" min="1" max="500" value="70"/>
+            <div class="form-hint">Количество клиентов в одной отправляемой партии. Макс: 70</div>
+          </div>
+          
+          <div class="form-row cols-2" style="margin-bottom:8px">
+            <div class="form-group">
+              <label class="form-label">Мин интервал (сек)</label>
+              <input type="number" class="form-input" id="intervalMin" min="1" max="300" value="10"/>
+              <div class="form-hint">Мин. пауза</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Макс интервал (сек)</label>
+              <input type="number" class="form-input" id="intervalMax" min="1" max="300" value="30"/>
+              <div class="form-hint">Макс. пауза</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Пауза между партиями (секунд)</label>
+            <input type="number" class="form-input" id="batchInterval" min="30" max="3600" value="120"/>
+            <div class="form-hint">Рекомендуется: 120 секунд (2 минуты) перерыва</div>
+          </div>
+
+          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);padding:14px;margin:16px 0;font-size:13px;line-height:1.6;color:var(--yellow)">
+            ⚠️ <strong>Важно:</strong> WhatsApp блокирует аккаунты за масс-рассылки без пауз. 
+            Рекомендуется выдерживать интервал 10–30 секунд и не отправлять более 70 сообщений за один поток.
+          </div>
+
+          <div class="divider"></div>
+
+          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveIntervalSettings()">
+            <span><i class="ph-duotone ph-floppy-disk" style="font-size: 1.1em; vertical-align: middle;"></i></span> Сохранить интервалы
+          </button>
+        </div>
+
+        <!-- Birthday Auto-Greetings -->
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+            <div style="width:50px;height:50px;background:linear-gradient(135deg,#ec4899,#be185d);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 15px rgba(236,72,153,0.2)"><i class="ph-duotone ph-gift" style="font-size: 1.1em; vertical-align: middle; color: white;"></i></div>
+            <div>
+              <div class="card-title">Дни рождения (Авто-поздравления)</div>
+              <div class="card-sub">Автоматически поздравлять клиентов</div>
+            </div>
+            <div style="margin-left:auto; display:flex; align-items:center;">
+              <!-- Toggle Switch -->
+              <label class="switch">
+                <input type="checkbox" id="birthdayAutoSend">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Шаблон сообщения</label>
+            <textarea class="form-textarea" id="birthdayMessage" style="min-height:80px;font-size:13px"></textarea>
+            <div class="form-hint">Переменные: {{имя}}, {{фамилия}}, {{телефон}}</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Время автоматической отправки</label>
+            <select class="form-select" id="birthdaySendHour">
+              <option value="0">00:00 (Полночь)</option>
+              <option value="1">01:00</option>
+              <option value="2">02:00</option>
+              <option value="3">03:00</option>
+              <option value="4">04:00</option>
+              <option value="5">05:00</option>
+              <option value="6">06:00</option>
+              <option value="7">07:00</option>
+              <option value="8">08:00</option>
+              <option value="9">09:00</option>
+              <option value="10">10:00</option>
+              <option value="11">11:00</option>
+              <option value="12">12:00</option>
+              <option value="13">13:00</option>
+              <option value="14">14:00</option>
+              <option value="15">15:00</option>
+              <option value="16">16:00</option>
+              <option value="17">17:00</option>
+              <option value="18">18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+              <option value="21">21:00</option>
+              <option value="22">22:00</option>
+              <option value="23">23:00</option>
+            </select>
+          </div>
+
+          <div class="divider"></div>
+
+          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveBirthdaySettings()">
+            <span><i class="ph-duotone ph-floppy-disk" style="font-size: 1.1em; vertical-align: middle;"></i></span> Сохранить настройки
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/app.js"></script>
+<script>
+  async function loadSettings() {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      if (data.batch_size) document.getElementById('batchSize').value = data.batch_size;
+      if (data.interval_min) document.getElementById('intervalMin').value = data.interval_min;
+      if (data.interval_max) document.getElementById('intervalMax').value = data.interval_max;
+      if (data.batch_interval) document.getElementById('batchInterval').value = data.batch_interval;
+      if (data.birthday_auto_send) document.getElementById('birthdayAutoSend').checked = (data.birthday_auto_send === '1');
+      if (data.birthday_message) document.getElementById('birthdayMessage').value = data.birthday_message;
+      if (data.birthday_send_hour) document.getElementById('birthdaySendHour').value = data.birthday_send_hour;
+    } catch(e) { console.error(e); }
+  }
+
+  async function checkWhatsAppStatus() {
+    try {
+      const res = await fetch('/api/whatsapp/status');
+      const data = await res.json();
+      
+      const badge = document.getElementById('waStatusBadge');
+      const qrArea = document.getElementById('qrArea');
+      const qrImage = document.getElementById('qrImage');
+      const profileArea = document.getElementById('profileArea');
+      const connectBtn = document.getElementById('connectBtn');
+      const disconnectBtn = document.getElementById('disconnectBtn');
+      const profileName = document.getElementById('profileName');
+      const profilePhone = document.getElementById('profilePhone');
+
+      const qrWaitingBtn = document.getElementById('qrWaitingBtn');
+
+      // Helper to reset all
+      function hideAll() {
+        qrArea.style.display = 'none';
+        profileArea.style.display = 'none';
+        connectBtn.style.display = 'none';
+        disconnectBtn.style.display = 'none';
+        qrWaitingBtn.style.display = 'none';
+      }
+
+      if (data.status === 'CONNECTED') {
+        badge.innerHTML = '<span class="badge badge-green"><i class="ph-duotone ph-check-circle"></i> Подключен</span>';
+        hideAll();
+        profileArea.style.display = 'flex';
+        disconnectBtn.style.display = 'flex';
+        disconnectBtn.innerHTML = '<span><i class="ph-duotone ph-sign-out" style="font-size:1.1em;vertical-align:middle;"></i></span> Отключить';
+        if (data.info) {
+          profileName.innerText = data.info.pushname || 'Пользователь';
+          profilePhone.innerText = data.info.wid?.user ? `+${data.info.wid.user}` : '';
+        }
+      } else if (data.status === 'QR_READY') {
+        badge.innerHTML = '<span class="badge badge-blue"><i class="ph-duotone ph-qr-code"></i> Ожидание сканирования</span>';
+        hideAll();
+        qrArea.style.display = 'block';
+        qrImage.src = data.qr || '';
+        disconnectBtn.style.display = 'flex';
+        disconnectBtn.innerHTML = '<span><i class="ph-duotone ph-x-circle" style="font-size:1.1em;vertical-align:middle;"></i></span> Отмена';
+      } else if (data.status === 'CONNECTING' || data.status === 'AUTHENTICATING') {
+        const label = data.status === 'AUTHENTICATING' ? 'Авторизация...' : 'Запуск браузера...';
+        badge.innerHTML = `<span class="badge badge-yellow"><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> ${label}</span>`;
+        hideAll();
+        qrWaitingBtn.style.display = 'flex';
+        qrWaitingBtn.innerHTML = `<span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> ${label}`;
+      } else {
+        // DISCONNECTED or unknown
+        badge.innerHTML = '<span class="badge badge-red"><i class="ph-duotone ph-x-circle"></i> Отключен</span>';
+        hideAll();
+        connectBtn.style.display = 'flex';
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function connectWhatsApp() {
+    const btn = document.getElementById('connectBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> Запуск...';
+    try {
+      await fetch('/api/whatsapp/connect', { method: 'POST' });
+      showToast('Запуск процесса подключения, ожидайте QR код...', 'info');
+      setTimeout(checkWhatsAppStatus, 1500);
+    } catch(e) {
+      showToast('Ошибка: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<span><i class="ph-duotone ph-plug"></i></span> Подключить';
+    }
+  }
+
+  async function disconnectWhatsApp() {
+    if (!confirm('Вы уверены, что хотите отключить текущий аккаунт WhatsApp?')) return;
+    try {
+      await fetch('/api/whatsapp/disconnect', { method: 'POST' });
+      showToast('Аккаунт WhatsApp отключен', 'success');
+      checkWhatsAppStatus();
+    } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
+  }
+
+  setInterval(checkWhatsAppStatus, 2000);
+  checkWhatsAppStatus();
+
+  async function saveIntervalSettings() {
+    const body = {
+      batch_size: document.getElementById('batchSize').value,
+      interval_min: document.getElementById('intervalMin').value,
+      interval_max: document.getElementById('intervalMax').value,
+      batch_interval: document.getElementById('batchInterval').value,
+    };
+    try {
+      await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      showToast('Настройки интервалов сохранены <i class="ph-duotone ph-check-circle" style="font-size: 1.1em; vertical-align: middle; color: var(--green);"></i>', 'success');
+    } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
+  }
+
+  async function saveBirthdaySettings() {
+    const body = {
+      birthday_auto_send: document.getElementById('birthdayAutoSend').checked ? '1' : '0',
+      birthday_message: document.getElementById('birthdayMessage').value,
+      birthday_send_hour: document.getElementById('birthdaySendHour').value
+    };
+    try {
+      await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      showToast('Настройки дней рождения сохранены', 'success');
+    } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
+  }
+
+
+
+  loadSettings();
+</script>
+</body>
+</html>

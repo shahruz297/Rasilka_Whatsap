@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Отправить рассылку — WhatsApp</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .client-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;max-height:400px;overflow-y:auto;padding:4px }
+    .step-header { display:flex;align-items:center;gap:12px;margin-bottom:20px }
+    .step-num { width:34px;height:34px;border-radius:50%;background:var(--gradient-green);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--shadow-glow) }
+    .interval-inputs { display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px }
+    .template-vars { display:flex;gap:8px;flex-wrap:wrap;margin-top:8px }
+    .template-var { padding:5px 12px;background:var(--green-glow);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:12px;font-family:'Inter',monospace;color:var(--green);cursor:pointer;transition:all 0.2s;font-weight:600 }
+    .template-var:hover { background:var(--green-glow-strong);transform:translateY(-1px) }
+    .sending-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px }
+    .sending-card { background:var(--bg-card-solid);border:var(--glass-border);border-radius:var(--radius-2xl);padding:40px;max-width:600px;width:100%;text-align:center;box-shadow:var(--shadow-lg) }
+    .send-layout { display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start }
+    @media (max-width: 1024px) {
+      .send-layout { grid-template-columns:1fr; }
+      .interval-inputs { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .interval-inputs { grid-template-columns:1fr; }
+      .sending-card { padding:24px 18px; border-radius:var(--radius-lg); }
+    }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></div>
+    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub">Платформа WhatsApp</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size: 1.1em; vertical-align: middle;"></i></span> Dashboard</a>
+    <a href="/settings" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp</a>
+    <a href="/clients" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-users" style="font-size: 1.1em; vertical-align: middle;"></i></span> Клиенты</a>
+    <a href="/send" class="nav-item active"><span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отправить рассылку</a>
+    <a href="/campaigns" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size: 1.1em; vertical-align: middle;"></i></span> История</a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><i class="ph-bold ph-list"></i></button>
+      <div>
+        <div class="topbar-title"><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i> Отправить рассылку</div>
+        <div class="topbar-sub">Массовая отправка сообщений через WhatsApp</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" style="font-size: 16px; padding: 6px 10px;" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size: 1.1em; vertical-align: middle;"></i></button>
+    </div>
+  </header>
+
+  <div class="page-content send-layout">
+
+    <!-- Left: Steps -->
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- Step 1: Message -->
+      <div class="card">
+        <div class="step-header">
+          <div class="step-num">1</div>
+          <div>
+            <div class="card-title">Текст сообщения</div>
+            <div class="card-sub">Укажите название кампании и текст сообщения</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Название кампании</label>
+          <input type="text" class="form-input" id="campaignName" placeholder="Например: Мартовская акция"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Шаблон сообщения (общий текст) <span class="required">*</span></label>
+          <textarea class="form-textarea" id="messageText" placeholder="Здравствуйте, {{имя}}! ..." style="min-height:140px" oninput="updatePreview()"></textarea>
+          <div class="form-hint">Используйте переменные:</div>
+          <div class="template-vars">
+            <span class="template-var" onclick="insertVar('{{имя}}')" title="Вставить имя">Имя</span>
+            <span class="template-var" onclick="insertVar('{{полное_имя}}')" title="Вставить полное имя (ФИО)">Полное имя</span>
+            <span class="template-var" onclick="insertVar('{{фамилия}}')" title="Вставить фамилию">Фамилия</span>
+            <span class="template-var" onclick="insertVar('{{телефон}}')" title="Вставить телефон">Телефон</span>
+            <span class="template-var" onclick="insertVar('{{адрес}}')" title="Вставить адрес">Адрес</span>
+            <span class="template-var" onclick="insertVar('{{день_рождения}}')" title="Вставить день рождения">День рождения</span>
+          </div>
+          <div class="form-hint" style="margin-top:8px;color:var(--text-muted);font-size:11px;line-height:1.4">
+            <span style="color:var(--yellow)"><i class="ph-fill ph-warning"></i> Внимание:</span> В текстовом поле коды вроде <b>{{имя}}</b> — это нормально. При отправке система автоматически заменит их на данные каждого клиента. Как это выглядит, можно посмотреть в разделе <b>"Предпросмотр"</b> справа.
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Clients -->
+      <div class="card">
+        <div class="step-header">
+          <div class="step-num">2</div>
+          <div>
+            <div class="card-title">Выбор клиентов</div>
+            <div class="card-sub" id="clientCountLabel">Загрузка...</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="clientSearch" placeholder="Поиск..." oninput="filterClients()"/>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;white-space:nowrap">
+            <input type="checkbox" id="selectAllClients" style="accent-color:var(--green);width:16px;height:16px" onchange="toggleSelectAllClients()"/>
+            Выбрать все
+          </label>
+          <span id="selectedClientsCount" style="font-size:13px;color:var(--green);font-weight:600;margin-left:auto"></span>
+        </div>
+        <div class="client-grid" id="clientGrid">
+          <div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-muted)"><i class="ph-duotone ph-hourglass-medium" style="font-size: 1.1em; vertical-align: middle;"></i> Загрузка...</div>
+        </div>
+      </div>
+
+      <!-- Step 3: Interval -->
+      <div class="card">
+        <div class="step-header">
+          <div class="step-num">3</div>
+          <div>
+            <div class="card-title">Настройки отправки</div>
+            <div class="card-sub">Настройте интервал, чтобы избежать блокировки</div>
+          </div>
+        </div>
+        <div class="interval-inputs">
+          <div class="form-group">
+            <label class="form-label">Размер партии</label>
+            <input type="number" class="form-input" id="batchSize" value="70" min="1" max="200" oninput="updateSummary()"/>
+            <div class="form-hint">Количество сообщений за раз</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Интервал сообщений (сек)</label>
+            <div style="display:flex;gap:8px">
+              <input type="number" class="form-input" id="intervalMin" value="10" min="1" max="300" placeholder="min" oninput="updateSummary()" style="width:50%"/>
+              <input type="number" class="form-input" id="intervalMax" value="30" min="1" max="300" placeholder="max" oninput="updateSummary()" style="width:50%"/>
+            </div>
+            <div class="form-hint">Мин - Макс (секунды)</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Пауза между партиями (сек)</label>
+            <input type="number" class="form-input" id="batchInterval" value="120" min="30" max="3600" oninput="updateSummary()"/>
+            <div class="form-hint">Пауза между отправкой партий</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right: Preview & summary -->
+    <div style="display:flex;flex-direction:column;gap:20px;position:sticky;top:80px">
+
+      <!-- Message preview -->
+      <div class="card" style="background:var(--wa-preview-card)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title"><i class="ph-duotone ph-eye" style="font-size: 1.1em; vertical-align: middle;"></i> Предпросмотр сообщения</div>
+          <span id="previewClientLabel" style="font-size:11px;color:var(--text-muted);background:var(--bg-secondary);padding:3px 9px;border-radius:6px;border:1px solid var(--border)">Предпросмотр: (шаблон)</span>
+        </div>
+        <div style="background:var(--wa-preview-bg);border-radius:12px;padding:0;overflow:hidden">
+          <div style="background:var(--wa-preview-header);padding:10px 14px;font-size:12px;color:var(--wa-preview-header-text);display:flex;align-items:center;gap:6px">
+            <span><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp • Предпросмотр
+          </div>
+          <div style="padding:14px">
+            <div style="background:var(--wa-preview-bubble);border-radius:10px 10px 10px 0;padding:12px 14px;max-width:90%;word-break:break-word;box-shadow:var(--shadow-sm)">
+              <div style="font-size:14px;line-height:1.6;color:var(--wa-preview-text);white-space:pre-wrap" id="msgPreview">Текст сообщения появится здесь...</div>
+              <div style="font-size:11px;color:var(--wa-preview-time);margin-top:6px;text-align:right;font-weight:500;">✓✓ 12:00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Summary -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px"><i class="ph-duotone ph-chart-bar" style="font-size: 1.1em; vertical-align: middle;"></i> Отчет об отправке</div>
+        <div style="display:flex;flex-direction:column;gap:10px" id="sendSummary">
+          <div style="display:flex;justify-content:space-between;font-size:14px">
+            <span style="color:var(--text-muted)">Выбрано клиентов:</span>
+            <strong id="sumClients" style="color:var(--green)">0</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:14px">
+            <span style="color:var(--text-muted)">Количество партий:</span>
+            <strong id="sumBatches">—</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:14px">
+            <span style="color:var(--text-muted)">Время отправки (примерное):</span>
+            <strong id="sumTime">—</strong>
+          </div>
+          <div class="divider"></div>
+          <div style="background:var(--yellow-soft);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--yellow)">
+            ⚠️ Интервалы защищают от блокировок. Рекомендуется не менять.
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" style="width:100%;margin-top:16px;justify-content:center" onclick="startSending()" id="sendBtn">
+          <span><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Начать рассылку
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Sending overlay -->
+<div class="sending-overlay" id="sendingOverlay">
+  <div class="sending-card">
+    <div class="sending-animation" id="sendingIcon">📤</div>
+    <h2 style="font-size:22px;font-weight:800;margin-bottom:8px" id="sendingTitle">Отправка...</h2>
+    <p style="color:var(--text-muted);margin-bottom:24px" id="sendingSubtitle">Сообщения отправляются, ожидайте...</p>
+
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px">
+        <span style="color:var(--text-muted)">Прогресс</span>
+        <span id="progressText" style="font-weight:700;color:var(--green)">0 / 0</span>
+      </div>
+      <div class="progress-wrap progress-lg">
+        <div class="progress-bar" id="progressBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-around;margin-bottom:20px">
+      <div style="text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--green)" id="sentNum">0</div>
+        <div style="font-size:12px;color:var(--text-muted)">Отправлено</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--red)" id="failedNum">0</div>
+        <div style="font-size:12px;color:var(--text-muted)">Ошибка</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--text-muted)" id="remainNum">0</div>
+        <div style="font-size:12px;color:var(--text-muted)">Осталось</div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;min-height:60px">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Последнее действие:</div>
+      <div id="lastAction" style="font-size:13px;color:var(--text-primary)">Запуск...</div>
+      <div id="waitingCountdown" style="margin-top:8px;display:none"></div>
+    </div>
+
+    <div class="live-feed" id="liveFeed" style="margin-bottom:20px;max-height:160px"></div>
+
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn btn-danger" onclick="cancelSending()" id="cancelBtn"><span><i class="ph-duotone ph-stop-circle" style="font-size: 1.1em; vertical-align: middle;"></i></span> Остановить</button>
+      <a href="/campaigns" class="btn btn-secondary" id="viewCampaignBtn" style="display:none"><span><i class="ph-duotone ph-clipboard-text" style="font-size: 1.1em; vertical-align: middle;"></i></span> Посмотреть результат</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/app.js"></script>
+<script src="/js/send.js"></script>
+</body>
+</html>
