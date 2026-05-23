@@ -35,18 +35,13 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></div>
-    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub">Платформа WhatsApp</span></div>
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size:1.1em;vertical-align:middle;"></i></div>
+    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub" id="sidebarShopName">Загрузка...</span></div>
   </div>
-  <nav class="sidebar-nav">
-    <a href="/" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size: 1.1em; vertical-align: middle;"></i></span> Dashboard</a>
-    <a href="/settings" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp</a>
-    <a href="/clients" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-users" style="font-size: 1.1em; vertical-align: middle;"></i></span> Клиенты</a>
-    <a href="/send" class="nav-item active"><span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отправить рассылку</a>
-    <a href="/campaigns" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size: 1.1em; vertical-align: middle;"></i></span> История</a>
-  </nav>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
   <div class="sidebar-footer">
     <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="handleLogout()" style="width:100%;justify-content:center;margin-top:8px;color:var(--red)"><i class="ph-duotone ph-sign-out" style="font-size:1.1em;vertical-align:middle;"></i> Выход</button>
   </div>
 </aside>
 
@@ -74,16 +69,48 @@
         <div class="step-header">
           <div class="step-num">1</div>
           <div>
-            <div class="card-title">Текст сообщения</div>
-            <div class="card-sub">Укажите название кампании и текст сообщения</div>
+            <div class="card-title">Сообщение</div>
+            <div class="card-sub">Укажите текст и/или изображение для отправки</div>
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Название кампании</label>
           <input type="text" class="form-input" id="campaignName" placeholder="Например: Мартовская акция"/>
         </div>
+
+        <!-- Image Upload Zone -->
         <div class="form-group">
-          <label class="form-label">Шаблон сообщения (общий текст) <span class="required">*</span></label>
+          <label class="form-label"><i class="ph-duotone ph-image" style="font-size:1.1em;vertical-align:middle;"></i> Изображение <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--text-muted)">(необязательно)</span></label>
+          <div class="image-upload-zone" id="imageUploadZone" onclick="document.getElementById('imageFileInput').click()">
+            <input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="handleImageSelect(event)"/>
+            <div class="upload-placeholder" id="uploadPlaceholder">
+              <div class="upload-icon-wrap">
+                <i class="ph-duotone ph-cloud-arrow-up" style="font-size:36px;color:var(--green)"></i>
+              </div>
+              <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Перетащите фото сюда</div>
+              <div style="font-size:12px;color:var(--text-muted)">или <span style="color:var(--green);cursor:pointer;font-weight:600">выберите файл</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:8px">JPG, PNG, GIF, WEBP • до 16 МБ</div>
+            </div>
+            <div class="upload-preview" id="uploadPreview" style="display:none">
+              <img id="uploadPreviewImg" src="" alt="Preview"/>
+              <div class="upload-preview-info">
+                <div class="upload-preview-name" id="uploadFileName">image.jpg</div>
+                <div class="upload-preview-size" id="uploadFileSize">0 КБ</div>
+              </div>
+              <button type="button" class="upload-remove-btn" id="uploadRemoveBtn" onclick="removeImage(event)" title="Удалить изображение">
+                <i class="ph-bold ph-x" style="font-size:14px"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
+            <label class="form-label" style="margin-bottom:0">Текст сообщения <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--text-muted)">(необязательно, если есть изображение)</span></label>
+            <select class="form-input" id="templateSelect" style="width:auto;min-width:180px;padding:6px 10px;font-size:13px;height:auto" onchange="applyTemplate()">
+              <option value="">-- Выбрать шаблон --</option>
+            </select>
+          </div>
           <textarea class="form-textarea" id="messageText" placeholder="Здравствуйте, {{имя}}! ..." style="min-height:140px" oninput="updatePreview()"></textarea>
           <div class="form-hint">Используйте переменные:</div>
           <div class="template-vars">
@@ -172,9 +199,14 @@
             <span><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp • Предпросмотр
           </div>
           <div style="padding:14px">
-            <div style="background:var(--wa-preview-bubble);border-radius:10px 10px 10px 0;padding:12px 14px;max-width:90%;word-break:break-word;box-shadow:var(--shadow-sm)">
-              <div style="font-size:14px;line-height:1.6;color:var(--wa-preview-text);white-space:pre-wrap" id="msgPreview">Текст сообщения появится здесь...</div>
-              <div style="font-size:11px;color:var(--wa-preview-time);margin-top:6px;text-align:right;font-weight:500;">✓✓ 12:00</div>
+            <div style="background:var(--wa-preview-bubble);border-radius:10px 10px 10px 0;max-width:90%;word-break:break-word;box-shadow:var(--shadow-sm);overflow:hidden">
+              <div id="previewImageWrap" style="display:none">
+                <img id="previewImage" src="" alt="Preview" style="width:100%;display:block;border-radius:10px 10px 0 0;max-height:240px;object-fit:cover"/>
+              </div>
+              <div style="padding:12px 14px">
+                <div style="font-size:14px;line-height:1.6;color:var(--wa-preview-text);white-space:pre-wrap" id="msgPreview">Текст сообщения появится здесь...</div>
+                <div style="font-size:11px;color:var(--wa-preview-time);margin-top:6px;text-align:right;font-weight:500;">✓✓ 12:00</div>
+              </div>
             </div>
           </div>
         </div>

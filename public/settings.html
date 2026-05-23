@@ -18,13 +18,7 @@
     <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></div>
     <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub">Платформа WhatsApp</span></div>
   </div>
-  <nav class="sidebar-nav">
-    <a href="/" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size: 1.1em; vertical-align: middle;"></i></span> Dashboard</a>
-    <a href="/settings" class="nav-item active"><span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp</a>
-    <a href="/clients" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-users" style="font-size: 1.1em; vertical-align: middle;"></i></span> Клиенты</a>
-    <a href="/send" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отправить рассылку</a>
-    <a href="/campaigns" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size: 1.1em; vertical-align: middle;"></i></span> История</a>
-  </nav>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
   <div class="sidebar-footer">
     <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
   </div>
@@ -46,132 +40,175 @@
 
   <div class="page-content">
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(400px, 1fr));gap:24px;align-items:start">
+    <style>
+      .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        align-items: start;
+        grid-auto-rows: min-content;
+      }
+      @media (max-width: 1024px) {
+        .settings-grid { grid-template-columns: repeat(2, 1fr); }
+      }
+      @media (max-width: 768px) {
+        .settings-grid { grid-template-columns: 1fr; }
+      }
+      .settings-card {
+        background: linear-gradient(160deg, rgba(20, 26, 43, 0.8), rgba(12, 17, 30, 0.9));
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius-xl);
+        padding: 24px;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+      }
+      .settings-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px -10px rgba(0,0,0,0.7), 0 0 20px rgba(16,185,129,0.1);
+        border-color: rgba(255,255,255,0.1);
+        background: linear-gradient(160deg, rgba(26, 34, 56, 0.85), rgba(16, 22, 38, 0.95));
+      }
+      [data-theme="light"] .settings-card {
+        background: linear-gradient(160deg, #ffffff, #f8fafc);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+      }
+      [data-theme="light"] .settings-card:hover {
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+        background: #ffffff;
+      }
       
-      <!-- Left Column: API Settings -->
-      <div style="display:flex;flex-direction:column;gap:24px">
-        
+      .card-icon-wrapper {
+        width: 50px; height: 50px; border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 26px; flex-shrink: 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      }
+      .card-header-flex {
+        display: flex; align-items: center; gap: 14px; margin-bottom: 24px;
+      }
+      .card-body-flex {
+        flex: 1; display: flex; flex-direction: column;
+      }
+      .card-footer-flex {
+        margin-top: auto; padding-top: 20px;
+      }
+      
+      @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
 
-        <!-- WhatsApp Web (QR Code) -->
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
-            <div style="width:50px;height:50px;background:linear-gradient(135deg,#25D366,#128C7E);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:var(--shadow-green)"><i class="ph-duotone ph-qr-code" style="font-size: 1.1em; vertical-align: middle;"></i></div>
-            <div>
-              <div class="card-title">Подключение WhatsApp</div>
-              <div class="card-sub">Управление состоянием сессии</div>
-            </div>
-            <div id="waStatusBadge" style="margin-left:auto">
-              <span class="badge badge-gray"><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Загрузка...</span>
-            </div>
+    <div class="settings-grid">
+      
+      <!-- WhatsApp Web (QR Code) -->
+      <div class="settings-card" id="waCard" style="height:fit-content !important;">
+        <div class="card-header-flex" style="margin-bottom:16px;">
+          <div class="card-icon-wrapper" style="background:linear-gradient(135deg,#25D366,#128C7E);"><i class="ph-duotone ph-qr-code" style="color:white;"></i></div>
+          <div style="flex:1;">
+            <div class="card-title">Подключение</div>
+            <div class="card-sub">Статус сессии</div>
           </div>
-
-          <div id="qrArea" style="display:none; text-align:center; padding: 20px; background:var(--bg-secondary); border-radius:var(--radius); border:1px dashed var(--border); margin-bottom: 20px;">
-             <p style="color:var(--text-secondary); margin-bottom: 12px; font-size: 14px;">Отсканируйте QR-код для подключения:</p>
-             <img id="qrImage" src="" alt="QR Code" style="max-width: 250px; height: 250px; border-radius: 8px; background: #fff; padding: 10px;" />
+          <div id="waStatusBadge">
+            <span class="badge badge-gray"><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Загрузка...</span>
           </div>
-
-          <div id="profileArea" style="display:none; padding: 16px; background:rgba(37,211,102,0.08); border:1px solid rgba(37,211,102,0.2); border-radius:var(--radius); margin-bottom: 20px; align-items:center; gap: 16px;">
-             <div class="avatar" style="width: 48px; height: 48px; font-size: 24px;"><i class="ph-duotone ph-user"></i></div>
-             <div>
-                <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);" id="profileName">Loading...</div>
-                <div style="font-size: 13px; color: var(--green); margin-top: 4px;" id="profilePhone"></div>
-             </div>
-          </div>
-
-          <div class="divider"></div>
-
-          <div style="display:flex;gap:10px">
-            <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="connectWhatsApp()" id="connectBtn">
-              <span><i class="ph-duotone ph-plug" style="font-size: 1.1em; vertical-align: middle;"></i></span> Подключить
-            </button>
-            <button class="btn btn-danger" style="flex:1;justify-content:center; display:none;" onclick="disconnectWhatsApp()" id="disconnectBtn">
-              <span><i class="ph-duotone ph-sign-out" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отключить
-            </button>
-            <div id="qrWaitingBtn" class="btn btn-secondary" style="flex:1;justify-content:center; opacity:0.7; cursor:default; display:none;">
-              <span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> Ожидание...
-            </div>
-          </div>
-
-          <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
         </div>
 
+        <div id="qrArea" style="display:none; text-align:center; padding: 20px; background:var(--bg-secondary); border-radius:var(--radius); border:1px dashed var(--border); margin-bottom:16px;">
+           <p style="color:var(--text-secondary); margin-bottom: 12px; font-size: 13px;">Отсканируйте QR-код:</p>
+           <img id="qrImage" src="" alt="QR" style="max-width: 100%; height: auto; max-height: 200px; border-radius: 8px; background: #fff; padding: 8px; margin: 0 auto;" />
+        </div>
+
+        <div id="profileArea" style="display:none; padding: 16px; background:rgba(37,211,102,0.08); border:1px solid rgba(37,211,102,0.2); border-radius:var(--radius); align-items:center; gap: 16px; margin-bottom:16px;">
+           <div class="avatar" style="width: 48px; height: 48px; font-size: 24px;"><i class="ph-duotone ph-user"></i></div>
+           <div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);" id="profileName">Loading...</div>
+              <div style="font-size: 13px; color: var(--green); margin-top: 4px;" id="profilePhone"></div>
+           </div>
+        </div>
+
+        <div class="divider" style="margin:0 0 16px 0;"></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="connectWhatsApp()" id="connectBtn">
+            <span><i class="ph-duotone ph-plug" style="font-size: 1.1em; vertical-align: middle;"></i></span> Подключить
+          </button>
+          <button class="btn btn-danger" style="flex:1;justify-content:center; display:none;" onclick="disconnectWhatsApp()" id="disconnectBtn">
+            <span><i class="ph-duotone ph-sign-out" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отключить
+          </button>
+          <div id="qrWaitingBtn" class="btn btn-secondary" style="flex:1;justify-content:center; opacity:0.7; cursor:default; display:none;">
+            <span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> Ожидание...
+          </div>
+        </div>
       </div>
 
-      <!-- Right Column: Settings -->
-      <div style="display:flex;flex-direction:column;gap:24px">
-        
-        <!-- Sending intervals -->
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
-            <div style="width:50px;height:50px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 15px rgba(245,158,11,0.2)"><i class="ph-duotone ph-timer" style="font-size: 1.1em; vertical-align: middle;"></i></div>
-            <div>
-              <div class="card-title">Параметры отправки</div>
-              <div class="card-sub">Рекомендуемые настройки во избежание бана</div>
-            </div>
+      <!-- Sending intervals -->
+      <div class="settings-card">
+        <div class="card-header-flex">
+          <div class="card-icon-wrapper" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i class="ph-duotone ph-timer" style="color:white;"></i></div>
+          <div style="flex:1;">
+            <div class="card-title">Параметры</div>
+            <div class="card-sub">Настройки рассылки</div>
           </div>
+        </div>
 
-          <div class="form-group">
-            <label class="form-label">Размер партии (сообщений за раз)</label>
+        <div class="card-body-flex">
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Размер партии</label>
             <input type="number" class="form-input" id="batchSize" min="1" max="500" value="70"/>
-            <div class="form-hint">Количество клиентов в одной отправляемой партии. Макс: 70</div>
           </div>
           
-          <div class="form-row cols-2" style="margin-bottom:8px">
-            <div class="form-group">
-              <label class="form-label">Мин интервал (сек)</label>
+          <div class="form-row cols-2" style="margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Мин пауза</label>
               <input type="number" class="form-input" id="intervalMin" min="1" max="300" value="10"/>
-              <div class="form-hint">Мин. пауза</div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Макс интервал (сек)</label>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Макс пауза</label>
               <input type="number" class="form-input" id="intervalMax" min="1" max="300" value="30"/>
-              <div class="form-hint">Макс. пауза</div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Пауза между партиями (секунд)</label>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Пауза между партиями</label>
             <input type="number" class="form-input" id="batchInterval" min="30" max="3600" value="120"/>
-            <div class="form-hint">Рекомендуется: 120 секунд (2 минуты) перерыва</div>
           </div>
 
-          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);padding:14px;margin:16px 0;font-size:13px;line-height:1.6;color:var(--yellow)">
-            ⚠️ <strong>Важно:</strong> WhatsApp блокирует аккаунты за масс-рассылки без пауз. 
-            Рекомендуется выдерживать интервал 10–30 секунд и не отправлять более 70 сообщений за один поток.
+          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);padding:12px;font-size:12px;line-height:1.5;color:var(--yellow);margin-top:auto;">
+            ⚠️ <strong>Анти-бан:</strong> Интервал 10–30 сек, не более 70 сообщ/поток.
           </div>
+        </div>
 
-          <div class="divider"></div>
-
+        <div class="card-footer-flex">
+          <div class="divider" style="margin-top:0;"></div>
           <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveIntervalSettings()">
             <span><i class="ph-duotone ph-floppy-disk" style="font-size: 1.1em; vertical-align: middle;"></i></span> Сохранить интервалы
           </button>
         </div>
+      </div>
 
-        <!-- Birthday Auto-Greetings -->
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
-            <div style="width:50px;height:50px;background:linear-gradient(135deg,#ec4899,#be185d);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 15px rgba(236,72,153,0.2)"><i class="ph-duotone ph-gift" style="font-size: 1.1em; vertical-align: middle; color: white;"></i></div>
-            <div>
-              <div class="card-title">Дни рождения (Авто-поздравления)</div>
-              <div class="card-sub">Автоматически поздравлять клиентов</div>
-            </div>
-            <div style="margin-left:auto; display:flex; align-items:center;">
-              <!-- Toggle Switch -->
-              <label class="switch">
-                <input type="checkbox" id="birthdayAutoSend">
-                <span class="slider"></span>
-              </label>
-            </div>
+      <!-- Birthday Auto-Greetings -->
+      <div class="settings-card">
+        <div class="card-header-flex">
+          <div class="card-icon-wrapper" style="background:linear-gradient(135deg,#ec4899,#be185d);"><i class="ph-duotone ph-gift" style="color:white;"></i></div>
+          <div style="flex:1;">
+            <div class="card-title">Дни рождения</div>
+            <div class="card-sub">Авто-поздравления</div>
           </div>
+          <div style="margin-left:auto;">
+            <label class="switch">
+              <input type="checkbox" id="birthdayAutoSend">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
 
-          <div class="form-group">
+        <div class="card-body-flex">
+          <div class="form-group" style="display:flex;flex-direction:column;flex:1;margin-bottom:16px;">
             <label class="form-label">Шаблон сообщения</label>
-            <textarea class="form-textarea" id="birthdayMessage" style="min-height:80px;font-size:13px"></textarea>
-            <div class="form-hint">Переменные: {{имя}}, {{фамилия}}, {{телефон}}</div>
+            <textarea class="form-textarea" id="birthdayMessage" style="flex:1;resize:none;min-height:100px;font-size:13px;" placeholder="Текст поздравления..."></textarea>
+            <div class="form-hint" style="margin-top:8px;">Переменные: {{имя}}, {{фамилия}}, {{телефон}}</div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Время автоматической отправки</label>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Время отправки</label>
             <select class="form-select" id="birthdaySendHour">
               <option value="0">00:00 (Полночь)</option>
               <option value="1">01:00</option>
@@ -199,14 +236,14 @@
               <option value="23">23:00</option>
             </select>
           </div>
+        </div>
 
-          <div class="divider"></div>
-
+        <div class="card-footer-flex">
+          <div class="divider" style="margin-top:0;"></div>
           <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveBirthdaySettings()">
             <span><i class="ph-duotone ph-floppy-disk" style="font-size: 1.1em; vertical-align: middle;"></i></span> Сохранить настройки
           </button>
         </div>
-
       </div>
 
     </div>
@@ -217,6 +254,9 @@
 <div class="toast-container" id="toastContainer"></div>
 <script src="/js/app.js"></script>
 <script>
+  let connectTimer = null;
+  let connectStartLocal = null;
+
   async function loadSettings() {
     try {
       const res = await fetch('/api/settings');
@@ -244,7 +284,6 @@
       const disconnectBtn = document.getElementById('disconnectBtn');
       const profileName = document.getElementById('profileName');
       const profilePhone = document.getElementById('profilePhone');
-
       const qrWaitingBtn = document.getElementById('qrWaitingBtn');
 
       // Helper to reset all
@@ -266,40 +305,67 @@
           profileName.innerText = data.info.pushname || 'Пользователь';
           profilePhone.innerText = data.info.wid?.user ? `+${data.info.wid.user}` : '';
         }
+        stopConnectTimer();
       } else if (data.status === 'QR_READY') {
-        badge.innerHTML = '<span class="badge badge-blue"><i class="ph-duotone ph-qr-code"></i> Ожидание сканирования</span>';
+        badge.innerHTML = '<span class="badge badge-blue"><i class="ph-duotone ph-qr-code"></i> Отсканируйте QR</span>';
         hideAll();
         qrArea.style.display = 'block';
         qrImage.src = data.qr || '';
         disconnectBtn.style.display = 'flex';
         disconnectBtn.innerHTML = '<span><i class="ph-duotone ph-x-circle" style="font-size:1.1em;vertical-align:middle;"></i></span> Отмена';
+        stopConnectTimer();
       } else if (data.status === 'CONNECTING' || data.status === 'AUTHENTICATING') {
-        const label = data.status === 'AUTHENTICATING' ? 'Авторизация...' : 'Запуск браузера...';
+        const elapsed = data.elapsed || (connectStartLocal ? Math.round((Date.now() - connectStartLocal) / 1000) : 0);
+        const label = data.status === 'AUTHENTICATING' 
+          ? 'Авторизация...' 
+          : `Запуск браузера... ${elapsed} сек`;
         badge.innerHTML = `<span class="badge badge-yellow"><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> ${label}</span>`;
         hideAll();
         qrWaitingBtn.style.display = 'flex';
-        qrWaitingBtn.innerHTML = `<span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> ${label}`;
+        
+        // Show detailed progress
+        let progressMsg = '';
+        if (elapsed < 5) {
+          progressMsg = '<i class="ph-duotone ph-browser" style="font-size:1.1em;vertical-align:middle;"></i> Запуск Chrome...';
+        } else if (elapsed < 15) {
+          progressMsg = '<i class="ph-duotone ph-globe" style="font-size:1.1em;vertical-align:middle;"></i> Загрузка WhatsApp Web...';
+        } else if (elapsed < 30) {
+          progressMsg = '<i class="ph-duotone ph-qr-code" style="font-size:1.1em;vertical-align:middle;"></i> Генерация QR-кода...';
+        } else {
+          progressMsg = '<i class="ph-duotone ph-hourglass-medium" style="font-size:1.1em;vertical-align:middle;"></i> Ещё немного...';
+        }
+        
+        qrWaitingBtn.innerHTML = `<span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> ${progressMsg} <span style="opacity:0.6;font-size:12px;margin-left:4px">(${elapsed}с)</span>`;
       } else {
         // DISCONNECTED or unknown
         badge.innerHTML = '<span class="badge badge-red"><i class="ph-duotone ph-x-circle"></i> Отключен</span>';
         hideAll();
         connectBtn.style.display = 'flex';
+        stopConnectTimer();
       }
     } catch (e) { console.error(e); }
+  }
+
+  function stopConnectTimer() {
+    connectStartLocal = null;
   }
 
   async function connectWhatsApp() {
     const btn = document.getElementById('connectBtn');
     btn.disabled = true;
     btn.innerHTML = '<span><i class="ph-duotone ph-spinner-gap" style="animation: spin 1s linear infinite;"></i></span> Запуск...';
+    connectStartLocal = Date.now();
+    
     try {
       await fetch('/api/whatsapp/connect', { method: 'POST' });
-      showToast('Запуск процесса подключения, ожидайте QR код...', 'info');
-      setTimeout(checkWhatsAppStatus, 1500);
+      showToast('Подключение начато. Ожидайте QR-код (обычно 10-30 сек)...', 'info', 5000);
+      // Immediately start fast polling
+      setTimeout(checkWhatsAppStatus, 500);
     } catch(e) {
       showToast('Ошибка: ' + e.message, 'error');
       btn.disabled = false;
       btn.innerHTML = '<span><i class="ph-duotone ph-plug"></i></span> Подключить';
+      connectStartLocal = null;
     }
   }
 
@@ -312,7 +378,8 @@
     } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
   }
 
-  setInterval(checkWhatsAppStatus, 2000);
+  // Poll every 1 second (faster than before) for quicker QR display
+  setInterval(checkWhatsAppStatus, 1000);
   checkWhatsAppStatus();
 
   async function saveIntervalSettings() {

@@ -18,13 +18,7 @@
     <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></div>
     <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub">Платформа WhatsApp</span></div>
   </div>
-  <nav class="sidebar-nav">
-    <a href="/" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size: 1.1em; vertical-align: middle;"></i></span> Dashboard</a>
-    <a href="/settings" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp</a>
-    <a href="/clients" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-users" style="font-size: 1.1em; vertical-align: middle;"></i></span> Клиенты</a>
-    <a href="/send" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отправить рассылку</a>
-    <a href="/campaigns" class="nav-item active"><span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size: 1.1em; vertical-align: middle;"></i></span> История</a>
-  </nav>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
   <div class="sidebar-footer">
     <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
   </div>
@@ -42,7 +36,7 @@
     <div class="topbar-actions">
       <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" style="font-size: 16px; padding: 6px 10px;" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size: 1.1em; vertical-align: middle;"></i></button>
       
-      <a href="/send" class="btn btn-primary"><span><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Новая рассылка</a>
+      <a href="/send" class="btn btn-primary"><span><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> <span class="btn-text">Новая рассылка</span></a>
     </div>
   </header>
 
@@ -51,7 +45,7 @@
       <div class="table-wrap">
         <table class="table">
           <thead>
-            <tr>
+            <tr id="tableHeaderRow">
               <th>#</th>
               <th>Название кампании</th>
               <th>Статус</th>
@@ -104,20 +98,48 @@
 
   async function loadCampaigns() {
     try {
+      if (!currentUser) await checkAuth();
+      const isSuper = currentUser && currentUser.role === 'superadmin';
+
+      const headerRow = document.getElementById('tableHeaderRow');
+      if (headerRow) {
+        if (isSuper) {
+          headerRow.innerHTML = `
+            <th>#</th><th>Название кампании</th><th>Админ</th><th>Тариф</th>
+            <th>Статус</th><th>Прогресс</th><th>Отправлено</th><th>Ошибка</th>
+            <th>Всего</th><th>Начато</th><th>Действие</th>`;
+        } else {
+          headerRow.innerHTML = `
+            <th>#</th><th>Название кампании</th>
+            <th>Статус</th><th>Прогресс</th><th>Отправлено</th><th>Ошибка</th>
+            <th>Всего</th><th>Начато</th><th>Действие</th>`;
+        }
+      }
+
       const res = await fetch('/api/campaigns');
       const data = await res.json();
       const body = document.getElementById('campaignsBody');
       if (!data.length) {
-        body.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon"><i class="ph-duotone ph-tray" style="font-size: 1.1em; vertical-align: middle;"></i></div><div class="empty-title">Нет кампаний</div><div class="empty-text"><a href="/send" style="color:var(--green)">Начните первую рассылку →</a></div></div></td></tr>`;
+        body.innerHTML = `<tr><td colspan="${isSuper ? 11 : 9}"><div class="empty-state"><div class="empty-icon"><i class="ph-duotone ph-tray" style="font-size: 1.1em; vertical-align: middle;"></i></div><div class="empty-title">Нет кампаний</div><div class="empty-text"><a href="/send" style="color:var(--green)">Начните первую рассылку →</a></div></div></td></tr>`;
         return;
       }
       body.innerHTML = data.map(c => {
         const [bc, bl] = statusMap[c.status] || statusMap.pending;
         const pct = c.total_count > 0 ? Math.round((c.sent_count / c.total_count) * 100) : 0;
         const date = new Date(c.created_at).toLocaleDateString('ru-RU', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        
+        let superCols = '';
+        if (isSuper) {
+          superCols = `
+            <td><strong>${c.admin_name || '—'}</strong></td>
+            <td><span class="badge badge-blue">${c.tariff_name || '—'}</span></td>
+          `;
+        }
+
         return `<tr>
           <td style="color:var(--text-muted);font-size:12px">#${c.id}</td>
           <td><strong>${c.name}</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">${c.message.substring(0,50)}${c.message.length>50?'...':''}</div></td>
+          ${superCols}
           <td><span class="badge ${bc}">${bl}</span></td>
           <td style="min-width:120px">
             <div style="display:flex;align-items:center;gap:8px">

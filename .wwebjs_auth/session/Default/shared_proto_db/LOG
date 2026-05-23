@@ -1,2 +1,3 @@
-2026/04/21-17:20:27.717 497c Creating DB C:\Users\Admin\Desktop\rasilka_project\.wwebjs_auth\session\Default\shared_proto_db since it was missing.
-2026/04/21-17:20:27.732 497c Reusing MANIFEST C:\Users\Admin\Desktop\rasilka_project\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001
+2026/05/14-16:51:04.920 1c90 Reusing MANIFEST C:\Users\Admin\Desktop\rasilka_project\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001
+2026/05/14-16:51:04.921 1c90 Recovering log #3
+2026/05/14-16:51:04.923 1c90 Reusing old log C:\Users\Admin\Desktop\rasilka_project\.wwebjs_auth\session\Default\shared_proto_db/000003.log 

@@ -24,6 +24,82 @@ function updateThemeIcon(theme) {
 // Initialize theme early
 initTheme();
 
+// ===== AUTH =====
+let currentUser = null;
+
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) {
+      window.location.href = '/login';
+      return null;
+    }
+    const data = await res.json();
+    currentUser = data.user;
+    updateUserUI();
+    return currentUser;
+  } catch(e) {
+    window.location.href = '/login';
+    return null;
+  }
+}
+
+function updateUserUI() {
+  if (!currentUser) return;
+  
+  // Update sidebar shop name
+  const shopNameEl = document.getElementById('sidebarShopName');
+  if (shopNameEl) {
+    shopNameEl.textContent = currentUser.shop_name || currentUser.username;
+  }
+
+  // Build sidebar nav dynamically
+  const nav = document.getElementById('sidebarNav');
+  if (nav) {
+    const currentPath = window.location.pathname;
+    let navHtml = `
+      <a href="/" class="nav-item ${currentPath==='/'?'active':''}">
+        <span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size:1.1em;vertical-align:middle;"></i></span> Dashboard
+      </a>
+      <a href="/settings" class="nav-item ${currentPath==='/settings'?'active':''}">
+        <span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size:1.1em;vertical-align:middle;"></i></span> WhatsApp
+      </a>
+      <a href="/clients" class="nav-item ${currentPath==='/clients'?'active':''}">
+        <span class="nav-icon"><i class="ph-duotone ph-users" style="font-size:1.1em;vertical-align:middle;"></i></span> Клиенты
+      </a>
+      <a href="/templates" class="nav-item ${currentPath==='/templates'?'active':''}">
+        <span class="nav-icon"><i class="ph-duotone ph-files" style="font-size:1.1em;vertical-align:middle;"></i></span> Шаблоны
+      </a>
+      <a href="/send" class="nav-item ${currentPath==='/send'?'active':''}">
+        <span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size:1.1em;vertical-align:middle;"></i></span> Отправить рассылку
+      </a>
+      <a href="/campaigns" class="nav-item ${currentPath==='/campaigns'?'active':''}">
+        <span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size:1.1em;vertical-align:middle;"></i></span> История
+      </a>
+      <a href="/tariffs" class="nav-item ${currentPath==='/tariffs'?'active':''}">
+        <span class="nav-icon"><i class="ph-duotone ph-crown" style="font-size:1.1em;vertical-align:middle;"></i></span> Тарифы
+      </a>`;
+    
+    if (currentUser.role === 'superadmin') {
+      navHtml += `
+      <div style="height:1px;background:var(--border);margin:8px 12px;"></div>
+      <a href="/admin-panel" class="nav-item ${currentPath==='/admin-panel'?'active':''}" style="color:var(--yellow)">
+        <span class="nav-icon"><i class="ph-duotone ph-shield-star" style="font-size:1.1em;vertical-align:middle;"></i></span> Админы
+      </a>`;
+    }
+    
+    nav.innerHTML = navHtml;
+  }
+}
+
+async function handleLogout() {
+  if (!confirm('Вы уверены, что хотите выйти?')) return;
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch(e) {}
+  window.location.href = '/login';
+}
+
 // ===== WEBSOCKET =====
 let ws = null;
 let wsReconnectTimer = null;
@@ -33,7 +109,7 @@ function connectWS() {
   ws = new WebSocket(`${protocol}//${location.host}`);
 
   ws.onopen = () => {
-    setWsStatus('connected', '<i class="ph-fill ph-circle" style="font-size: 1em; vertical-align: middle; color: var(--green);"></i> Добавлен');
+    setWsStatus('connected', '<i class="ph-fill ph-circle" style="font-size: 1em; vertical-align: middle; color: var(--green);"></i> Подключено');
     clearTimeout(wsReconnectTimer);
   };
 
@@ -69,7 +145,7 @@ function showToast(message, type = 'info', duration = 4000) {
   el.className = `toast ${type}`;
   el.id = id;
   el.innerHTML = `
-    <span class="toast-icon">${icons[type] || '<i class="ph-duotone ph-info" style="font-size: 1.1em; vertical-align: middle;"></i>'}</span>
+    <span class="toast-icon">${icons[type] || icons.info}</span>
     <span class="toast-msg">${message}</span>
     <span class="toast-close" onclick="removeToast('${id}')">✕</span>
   `;
@@ -114,24 +190,28 @@ function debounce(fn, delay = 400) {
 // ===== API HELPERS =====
 async function apiGet(url) {
   const res = await fetch(url);
+  if (res.status === 401) { window.location.href = '/login'; return; }
   if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Ошибка'); }
   return res.json();
 }
 
 async function apiPost(url, data) {
   const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  if (res.status === 401) { window.location.href = '/login'; return; }
   if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Ошибка'); }
   return res.json();
 }
 
 async function apiPut(url, data) {
   const res = await fetch(url, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  if (res.status === 401) { window.location.href = '/login'; return; }
   if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Ошибка'); }
   return res.json();
 }
 
 async function apiDelete(url) {
   const res = await fetch(url, { method: 'DELETE' });
+  if (res.status === 401) { window.location.href = '/login'; return; }
   if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Ошибка'); }
   return res.json();
 }
@@ -174,6 +254,7 @@ function closeMobileMenu() {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
   connectWS();
   
   // Close mobile menu on nav click

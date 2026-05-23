@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Панель администраторов — WhatsApp Рассылка</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size:1.1em;vertical-align:middle;"></i></div>
+    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub" id="sidebarShopName">Суперадмин</span></div>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+  <div class="sidebar-footer">
+    <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="handleLogout()" style="width:100%;justify-content:center;margin-top:8px;color:var(--red)">
+      <i class="ph-duotone ph-sign-out" style="font-size:1.1em;vertical-align:middle;"></i> Выход
+    </button>
+  </div>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><i class="ph-bold ph-list"></i></button>
+      <div>
+        <div class="topbar-title"><i class="ph-duotone ph-shield-star" style="font-size:1.1em;vertical-align:middle;"></i> Панель администраторов</div>
+        <div class="topbar-sub">Управление магазинами</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()"><i class="ph-duotone ph-sun" style="font-size:1.1em;vertical-align:middle;"></i></button>
+      <button class="btn btn-primary" onclick="openModalById('addAdminModal')"><span><i class="ph-duotone ph-plus-circle" style="font-size:1.1em;vertical-align:middle;"></i></span> <span class="btn-text">Новый админ</span></button>
+    </div>
+  </header>
+  <div class="page-content">
+    <div id="adminListView">
+      <div class="stats-grid">
+        <div class="stat-card" style="--accent-color:#3b82f6"><div class="stat-icon" style="background:rgba(59,130,246,0.1)"><i class="ph-duotone ph-users-three" style="font-size:1.1em;vertical-align:middle;color:var(--blue)"></i></div><div class="stat-info"><div class="stat-value" id="statAdmins">—</div><div class="stat-label">Всего админов</div></div></div>
+        <div class="stat-card" style="--accent-color:#10b981"><div class="stat-icon" style="background:rgba(16,185,129,0.1)"><i class="ph-duotone ph-users" style="font-size:1.1em;vertical-align:middle;color:var(--green)"></i></div><div class="stat-info"><div class="stat-value" id="statTotalClients">—</div><div class="stat-label">Всего клиентов</div></div></div>
+        <div class="stat-card" style="--accent-color:#f59e0b"><div class="stat-icon" style="background:rgba(245,158,11,0.1)"><i class="ph-duotone ph-clipboard-text" style="font-size:1.1em;vertical-align:middle;color:var(--yellow)"></i></div><div class="stat-info"><div class="stat-value" id="statTotalCampaigns">—</div><div class="stat-label">Всего кампаний</div></div></div>
+      </div>
+      <div class="card" style="margin-top:22px">
+        <div class="card-header"><div><div class="card-title"><i class="ph-duotone ph-storefront" style="font-size:1.1em;vertical-align:middle;"></i> Магазины</div><div class="card-sub">Все зарегистрированные магазины</div></div></div>
+        <div class="table-wrap">
+          <table class="table"><thead><tr><th>Магазин</th><th>Логин</th><th>Клиенты</th><th>Кампании</th><th>Тариф</th><th>Статус</th><th>Добавлен</th><th>Действия</th></tr></thead>
+          <tbody id="adminsBody"><tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><i class="ph-duotone ph-storefront" style="font-size:1.5em;"></i></div><div class="empty-title">Админов нет</div></div></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+    
+    <div id="adminDetailsView" style="display: none;">
+      <div style="margin-bottom: 20px;">
+        <button class="btn btn-secondary" onclick="hideAdminDetails()">
+          <i class="ph-duotone ph-arrow-left" style="font-size:1.1em;vertical-align:middle;"></i> Назад к списку
+        </button>
+      </div>
+      <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 20px;">
+          <div>
+            <div class="card-title" style="font-size: 22px; font-weight: 800;" id="detShopName">Shop Name</div>
+            <div class="card-sub" style="font-size: 14px;" id="detUsername">@username</div>
+          </div>
+          <div id="detStatus"></div>
+        </div>
+        <div style="padding-top: 20px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;background:var(--bg-secondary);padding:24px;border-radius:16px;margin-bottom: 20px;">
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing: 0.5px;font-weight: 700;">Дата регистрации</div>
+              <div style="font-size:18px;font-weight:600;margin-top:6px;" id="detCreated"></div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing: 0.5px;font-weight: 700;">Следующая оплата</div>
+              <div style="font-size:18px;font-weight:600;margin-top:6px;color:var(--yellow);" id="detNextPayment"></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+            <div style="background:var(--bg-secondary);padding:24px;border-radius:16px;text-align:center;">
+              <div style="font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing: 0.5px;font-weight: 700;">Тариф</div>
+              <div style="font-size:22px;font-weight:800;margin-top:8px;color:var(--blue);" id="detTariff"></div>
+            </div>
+            <div style="background:var(--bg-secondary);padding:24px;border-radius:16px;text-align:center;">
+              <div style="font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing: 0.5px;font-weight: 700;">Клиенты</div>
+              <div style="font-size:32px;font-weight:900;margin-top:8px;" id="detClients"></div>
+            </div>
+            <div style="background:var(--bg-secondary);padding:24px;border-radius:16px;text-align:center;">
+              <div style="font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing: 0.5px;font-weight: 700;">Рассылки</div>
+              <div style="font-size:32px;font-weight:900;margin-top:8px;" id="detCampaigns"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Add Modal -->
+<div class="modal-overlay" id="addAdminModal"><div class="modal"><div class="modal-header"><div class="modal-title"><i class="ph-duotone ph-plus-circle" style="font-size:1.1em;vertical-align:middle;"></i> Новый админ</div><button class="modal-close" onclick="closeModalById('addAdminModal')">✕</button></div><div class="modal-body">
+<div class="form-group"><label class="form-label">Название магазина</label><input type="text" class="form-input" id="newShopName" placeholder="Например: Цветочный магазин"/></div>
+<div class="form-group"><label class="form-label">Логин</label><input type="text" class="form-input" id="newUsername" placeholder="Например: flower_shop"/></div>
+<div class="form-group"><label class="form-label">Пароль</label><input type="text" class="form-input" id="newPassword" placeholder="Минимум 4 символа"/></div>
+<div class="form-group"><label class="form-label">Тариф (лимит отправки)</label><select class="form-select" id="newTariff"><option value="">Выберите тариф...</option></select></div>
+</div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeModalById('addAdminModal')">Отмена</button><button class="btn btn-primary" onclick="createAdmin()" id="createAdminBtn"><i class="ph-duotone ph-plus-circle" style="font-size:1.1em;vertical-align:middle;"></i> Добавить</button></div></div></div>
+
+
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editAdminModal"><div class="modal"><div class="modal-header"><div class="modal-title"><i class="ph-duotone ph-pencil-simple" style="font-size:1.1em;vertical-align:middle;"></i> Редактировать</div><button class="modal-close" onclick="closeModalById('editAdminModal')">✕</button></div><div class="modal-body">
+<input type="hidden" id="editAdminId"/>
+<div class="form-group"><label class="form-label">Название магазина</label><input type="text" class="form-input" id="editShopName"/></div>
+<div class="form-group"><label class="form-label">Тариф (лимит отправки)</label><select class="form-select" id="editTariff"><option value="">Выберите тариф...</option></select></div>
+<div class="form-group"><label class="form-label">Новый пароль (пусто=не менять)</label><input type="text" class="form-input" id="editPassword" placeholder="Новый пароль..."/></div>
+</div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeModalById('editAdminModal')">Отмена</button><button class="btn btn-primary" onclick="updateAdmin()"><i class="ph-duotone ph-floppy-disk" style="font-size:1.1em;vertical-align:middle;"></i> Сохранить</button></div></div></div>
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/app.js"></script>
+<script src="/js/admin-panel.js"></script>
+</body>
+</html>

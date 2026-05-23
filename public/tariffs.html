@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Тарифы — WA Рассылка</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .tariff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    
+    .tariff-card {
+      background: var(--bg-card-solid);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      display: flex; flex-direction: column;
+    }
+    .tariff-card:hover { 
+      transform: translateY(-6px); 
+      box-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.1); 
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .tariff-card.active-plan { 
+      border: 2px solid var(--green); 
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
+      box-shadow: 0 8px 24px -8px rgba(16, 185, 129, 0.25);
+    }
+    .tariff-card.active-plan::before {
+      content: '✓ ТЕКУЩИЙ';
+      position: absolute; top: 16px; right: 16px;
+      background: var(--green); color: #fff;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
+      padding: 4px 10px; border-radius: 20px;
+    }
+    
+    .tariff-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 16px;
+    }
+    .tariff-badge.starter { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .tariff-badge.standard { background: rgba(16,185,129,0.12); color: #10b981; }
+    .tariff-badge.premium { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .tariff-badge.unlimited { background: rgba(168,85,247,0.12); color: #a855f7; }
+    
+    .tariff-price {
+      font-size: 36px; font-weight: 900;
+      background: var(--gradient-green);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.1; margin-bottom: 4px;
+    }
+    .tariff-price-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    
+    .tariff-limit {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px; border-radius: 16px;
+      background: var(--bg-secondary); margin-bottom: 24px;
+      border: 1px solid rgba(0,0,0,0.03);
+    }
+    .tariff-limit-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .tariff-limit-value { font-size: 22px; font-weight: 800; color: var(--text-primary); line-height: 1; margin-bottom: 4px; }
+    .tariff-limit-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    
+    .tariff-features { list-style: none; padding: 0; margin: 0 0 24px; flex-grow: 1; }
+    .tariff-features li {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 14px; color: var(--text-secondary);
+      padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.03);
+      line-height: 1.4;
+    }
+    .tariff-features li:last-child { border-bottom: none; }
+    .tariff-features li i { color: var(--green); font-size: 18px; margin-top: 1px; }
+
+    /* Usage Card */
+    .usage-card {
+      background: var(--bg-card-solid);
+      border: var(--glass-border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+    }
+    .usage-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+    .usage-icon {
+      width: 56px; height: 56px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #fff;
+    }
+    
+    .usage-progress-wrap {
+      background: var(--bg-secondary);
+      border-radius: 12px; height: 20px;
+      overflow: hidden; position: relative; margin: 12px 0;
+    }
+    .usage-progress-bar {
+      height: 100%; border-radius: 12px;
+      transition: width 0.6s ease, background 0.4s ease;
+      position: relative;
+    }
+    .usage-progress-bar.low { background: linear-gradient(90deg, #10b981, #34d399); }
+    .usage-progress-bar.medium { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .usage-progress-bar.high { background: linear-gradient(90deg, #ef4444, #f87171); }
+    
+    .usage-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px;
+    }
+    .usage-stat {
+      text-align: center; padding: 14px;
+      background: var(--bg-secondary); border-radius: var(--radius);
+    }
+    .usage-stat-value { font-size: 24px; font-weight: 800; }
+    .usage-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    /* Super Admin Section */
+    .admin-tariff-table { margin-top: 20px; }
+    .tariff-select {
+      padding: 6px 12px; border-radius: 8px;
+      background: var(--bg-secondary); border: 1px solid var(--border);
+      color: var(--text-primary); font-size: 13px;
+      cursor: pointer; min-width: 140px;
+    }
+    .tariff-select:focus { border-color: var(--green); outline: none; }
+
+    /* Manage tariffs section */
+    .manage-tariff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 16px; }
+    .manage-tariff-item {
+      background: var(--bg-secondary); border-radius: var(--radius);
+      padding: 16px; border: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .manage-tariff-item .form-input { font-size: 13px; padding: 8px 12px; }
+    
+    @media (max-width: 768px) {
+      .tariff-grid { grid-template-columns: 1fr; }
+      .usage-stats { grid-template-columns: 1fr; }
+    }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size:1.1em;vertical-align:middle;"></i></div>
+    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub" id="sidebarShopName">Загрузка...</span></div>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+  <div class="sidebar-footer">
+    <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="handleLogout()" style="width:100%;justify-content:center;margin-top:8px;color:var(--red)"><i class="ph-duotone ph-sign-out" style="font-size:1.1em;vertical-align:middle;"></i> Выйти</button>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><i class="ph-bold ph-list"></i></button>
+      <div>
+        <div class="topbar-title"><i class="ph-duotone ph-crown" style="font-size:1.1em;vertical-align:middle;"></i> Тарифы</div>
+        <div class="topbar-sub">Тарифные планы и использование</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" style="font-size:16px;padding:6px 10px;" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size:1.1em;vertical-align:middle;"></i></button>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <!-- Сегодняшнее использование (Admin view) -->
+    <div id="usageSection">
+      <div class="usage-card" style="margin-bottom:24px">
+        <div class="usage-header">
+          <div class="usage-icon" style="background:linear-gradient(135deg,#10b981,#059669)">
+            <i class="ph-duotone ph-chart-pie-slice"></i>
+          </div>
+          <div>
+            <div style="font-size:18px;font-weight:800;color:var(--text-primary)">Использование сегодня</div>
+            <div style="font-size:13px;color:var(--text-muted)" id="usageDate">—</div>
+          </div>
+          <div style="margin-left:auto">
+            <span class="badge badge-green" id="usageTariffBadge">—</span>
+          </div>
+        </div>
+        
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:14px;color:var(--text-muted)">Отправлено / Лимит</span>
+          <span style="font-size:20px;font-weight:800;color:var(--text-primary)" id="usageCounter">0 / 0</span>
+        </div>
+        <div class="usage-progress-wrap">
+          <div class="usage-progress-bar low" id="usageProgressBar" style="width:0%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)">
+          <span>0%</span>
+          <span id="usagePercent">0% использовано</span>
+          <span>100%</span>
+        </div>
+        
+        <div class="usage-stats">
+          <div class="usage-stat">
+            <div class="usage-stat-value" style="color:var(--green)" id="statSent">0</div>
+            <div class="usage-stat-label">Отправлено сегодня</div>
+          </div>
+          <div class="usage-stat">
+            <div class="usage-stat-value" style="color:var(--blue)" id="statRemaining">0</div>
+            <div class="usage-stat-label">Остаток лимита</div>
+          </div>
+          <div class="usage-stat">
+            <div class="usage-stat-value" style="color:var(--yellow)" id="statLimit">0</div>
+            <div class="usage-stat-label">Дневной лимит</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Тариф жоспарлары -->
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header" style="margin-bottom:20px">
+        <div>
+          <div class="card-title"><i class="ph-duotone ph-crown" style="font-size:1.1em;vertical-align:middle;"></i> Тарифные планы</div>
+          <div class="card-sub">Доступные тарифные пакеты</div>
+        </div>
+      </div>
+      <div class="tariff-grid" id="tariffGrid">
+        <div style="text-align:center;padding:40px;color:var(--text-muted)">
+          <i class="ph-duotone ph-spinner-gap" style="font-size:24px;animation:spin 1s linear infinite;"></i>
+          <div style="margin-top:8px">Загрузка...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Суперадмин: Назначение тарифов магазинам -->
+    <div id="superAdminSection" style="display:none">
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header" style="margin-bottom:20px">
+          <div>
+            <div class="card-title"><i class="ph-duotone ph-storefront" style="font-size:1.1em;vertical-align:middle;"></i> Назначение тарифов магазинам</div>
+            <div class="card-sub">Назначьте тарифный план каждому магазину</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Магазин</th>
+                <th>Логин</th>
+                <th>Текущий тариф</th>
+                <th>Отправлено сегодня</th>
+                <th>Назначить тариф</th>
+              </tr>
+            </thead>
+            <tbody id="adminTariffBody">
+              <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted)">Загрузка...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Суперадмин: Управление тарифными планами -->
+      <div class="card">
+        <div class="card-header" style="margin-bottom:20px">
+          <div>
+            <div class="card-title"><i class="ph-duotone ph-gear" style="font-size:1.1em;vertical-align:middle;"></i> Управление тарифами</div>
+            <div class="card-sub">Добавить новый или изменить существующий тариф</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddTariffModal()">
+            <i class="ph-duotone ph-plus-circle" style="font-size:1.1em;vertical-align:middle;"></i> Новый тариф
+          </button>
+        </div>
+        <div class="manage-tariff-grid" id="manageTariffGrid">
+          <div style="text-align:center;padding:30px;color:var(--text-muted)">Загрузка...</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Add/Edit Tariff Modal -->
+<div class="modal-overlay" id="tariffModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="tariffModalTitle"><i class="ph-duotone ph-plus-circle" style="font-size:1.1em;vertical-align:middle;"></i> Новый тариф</div>
+      <button class="modal-close" onclick="closeModalById('tariffModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editTariffId"/>
+      <div class="form-group">
+        <label class="form-label">Название тарифа</label>
+        <input type="text" class="form-input" id="tariffName" placeholder="Например: Стандарт"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Дневной лимит (сообщений)</label>
+        <input type="number" class="form-input" id="tariffLimit" placeholder="Например: 500" min="1"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Цена (тенге)</label>
+        <input type="number" class="form-input" id="tariffPrice" placeholder="Например: 50000" min="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание</label>
+        <input type="text" class="form-input" id="tariffDescription" placeholder="Краткое описание..."/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModalById('tariffModal')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveTariff()" id="saveTariffBtn">
+        <i class="ph-duotone ph-floppy-disk" style="font-size:1.1em;vertical-align:middle;"></i> Сохранить
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/app.js"></script>
+<script src="/js/tariffs.js"></script>
+</body>
+</html>

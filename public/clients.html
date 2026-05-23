@@ -11,26 +11,32 @@
   </script>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+  @media (max-width: 768px) {
+    .clients-topbar-actions { flex-wrap: wrap; gap: 6px !important; }
+    .clients-search-card { padding: 12px !important; margin-bottom: 12px !important; }
+    .clients-search-wrap { gap: 8px !important; }
+    .clients-search-wrap .search-bar { width: 100%; flex: 1; }
+    .clients-select-wrap { margin-left: 0 !important; width: 100%; justify-content: space-between; }
+    .clients-pagination { padding: 12px 14px !important; }
+  }
+  @media (max-width: 480px) {
+    .clients-search-card { padding: 10px !important; margin-bottom: 10px !important; }
+    .clients-select-wrap label { font-size: 12px !important; }
+  }
+</style>
 </head>
 <body>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i></div>
-    <div class="logo-text">
-      <span class="logo-title">WA Рассылка</span>
-      <span class="logo-sub">Платформа WhatsApp</span>
-    </div>
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size:1.1em;vertical-align:middle;"></i></div>
+    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub" id="sidebarShopName">Загрузка...</span></div>
   </div>
-  <nav class="sidebar-nav">
-    <a href="/" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size: 1.1em; vertical-align: middle;"></i></span> Dashboard</a>
-    <a href="/settings" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size: 1.1em; vertical-align: middle;"></i></span> WhatsApp</a>
-    <a href="/clients" class="nav-item active"><span class="nav-icon"><i class="ph-duotone ph-users" style="font-size: 1.1em; vertical-align: middle;"></i></span> Клиенты</a>
-    <a href="/send" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size: 1.1em; vertical-align: middle;"></i></span> Отправить рассылку</a>
-    <a href="/campaigns" class="nav-item"><span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size: 1.1em; vertical-align: middle;"></i></span> История</a>
-  </nav>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
   <div class="sidebar-footer">
     <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="handleLogout()" style="width:100%;justify-content:center;margin-top:8px;color:var(--red)"><i class="ph-duotone ph-sign-out" style="font-size:1.1em;vertical-align:middle;"></i> Выход</button>
   </div>
 </aside>
 
@@ -43,48 +49,47 @@
         <div class="topbar-sub" id="clientCount">Загрузка...</div>
       </div>
     </div>
-    <div class="topbar-actions">
+    <div class="topbar-actions clients-topbar-actions">
       <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" style="font-size: 16px; padding: 6px 10px;" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size: 1.1em; vertical-align: middle;"></i></button>
-      
       <button class="btn btn-danger btn-sm" id="bulkDeleteBtn" style="display:none" onclick="bulkDelete()">
-        <i class="ph-duotone ph-trash" style="font-size: 1.1em; vertical-align: middle;"></i> Удалить выбранные
+        <i class="ph-duotone ph-trash" style="font-size: 1.1em; vertical-align: middle;"></i> <span class="btn-text">Удалить выбранные</span>
       </button>
-      <button class="btn btn-secondary btn-sm" onclick="openImportModal()"><i class="ph-duotone ph-download-simple" style="font-size: 1.1em; vertical-align: middle;"></i> Импорт</button>
-      <button class="btn btn-primary" onclick="openAddModal()"><i class="ph-duotone ph-plus-circle" style="font-size: 1.1em; vertical-align: middle;"></i> Добавить клиента</button>
+      <button class="btn btn-secondary btn-sm" onclick="openImportModal()"><i class="ph-duotone ph-download-simple" style="font-size: 1.1em; vertical-align: middle;"></i> <span class="btn-text">Импорт</span></button>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()"><i class="ph-duotone ph-plus-circle" style="font-size: 1.1em; vertical-align: middle;"></i> <span class="btn-text">Добавить</span></button>
     </div>
   </header>
 
   <div class="page-content">
     <!-- Search & filters -->
-    <div class="card" style="margin-bottom:20px;padding:16px 20px">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div class="search-bar">
+    <div class="card clients-search-card" style="margin-bottom:16px;padding:14px 16px">
+      <div class="clients-search-wrap" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="search-bar" style="flex:1;min-width:0">
           <span class="search-icon">🔍</span>
-          <input type="text" class="search-input" id="searchInput" placeholder="Поиск: имя, телефон, адрес..." oninput="debounceSearch()"/>
+          <input type="text" class="search-input" id="searchInput" placeholder="Поиск..." oninput="debounceSearch()"/>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer">
-            <input type="checkbox" id="selectAll" style="accent-color:var(--green);width:16px;height:16px" onchange="toggleSelectAll()"/> Выбрать все
+        <div class="clients-select-wrap" style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;white-space:nowrap">
+            <input type="checkbox" id="selectAll" style="accent-color:var(--green);width:16px;height:16px" onchange="toggleSelectAll()"/> Все
           </label>
-          <span id="selectedCount" style="font-size:13px;color:var(--text-muted)"></span>
+          <span id="selectedCount" style="font-size:12px;color:var(--text-muted)"></span>
         </div>
       </div>
     </div>
 
     <!-- Table -->
-    <div class="card" style="padding:0">
+    <div class="card clients-table-card" style="padding:0">
       <div class="table-wrap">
         <table class="table" id="clientsTable">
           <thead>
             <tr>
-              <th style="width:40px"></th>
+              <th style="width:36px"></th>
               <th>Клиент</th>
               <th>Телефон</th>
               <th>Адрес</th>
-              <th>Дата рождения</th>
+              <th>Д.Р.</th>
               <th>Теги</th>
               <th>Добавлен</th>
-              <th style="width:100px">Действие</th>
+              <th style="width:80px">Действие</th>
             </tr>
           </thead>
           <tbody id="clientsBody">
@@ -92,7 +97,7 @@
           </tbody>
         </table>
       </div>
-      <div id="pagination" style="padding:16px 20px;border-top:1px solid var(--border)"></div>
+      <div id="pagination" class="clients-pagination" style="padding:14px 16px;border-top:1px solid var(--border)"></div>
     </div>
   </div>
 </div>
@@ -113,7 +118,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Фамилия <span class="required">*</span></label>
-          <input type="text" class="form-input" id="fLastName" placeholder="Жұмабеков"/>
+          <input type="text" class="form-input" id="fLastName" placeholder="Иванов"/>
         </div>
       </div>
       <div class="form-group">

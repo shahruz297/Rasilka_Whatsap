@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Шаблоны сообщений — WhatsApp</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size:1.1em;vertical-align:middle;"></i></div>
+    <div class="logo-text"><span class="logo-title">WA Рассылка</span><span class="logo-sub" id="sidebarShopName">Загрузка...</span></div>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+  <div class="sidebar-footer">
+    <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="handleLogout()" style="width:100%;justify-content:center;margin-top:8px;color:var(--red)"><i class="ph-duotone ph-sign-out" style="font-size:1.1em;vertical-align:middle;"></i> Выход</button>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><i class="ph-bold ph-list"></i></button>
+      <div>
+        <div class="topbar-title"><i class="ph-duotone ph-files" style="font-size: 1.1em; vertical-align: middle;"></i> Шаблоны</div>
+        <div class="topbar-sub">Управление шаблонами сообщений для рассылок</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" style="font-size: 16px; padding: 6px 10px;" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size: 1.1em; vertical-align: middle;"></i></button>
+      <button class="btn btn-primary btn-sm" onclick="openAddTemplateModal()"><i class="ph-bold ph-plus"></i> Добавить шаблон</button>
+    </div>
+  </header>
+
+  <div class="page-content">
+    <div class="card" style="margin-bottom:20px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div class="search-bar" style="max-width:300px;flex:1">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="templateSearch" placeholder="Поиск шаблонов..." oninput="filterTemplates()"/>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);margin-left:auto">
+        Всего: <strong id="totalCount" style="color:var(--text-primary)">0</strong>
+      </div>
+    </div>
+
+    <!-- ТАБЛИЦА ШАБЛОНОВ -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:25%">Название</th>
+              <th style="width:55%">Текст</th>
+              <th style="width:10%">Создан</th>
+              <th style="width:10%;text-align:right">Действия</th>
+            </tr>
+          </thead>
+          <tbody id="templatesTbody">
+            <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="ph-duotone ph-hourglass-medium" style="font-size:1.2em;vertical-align:middle;"></i> Загрузка шаблонов...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно для добавления/редактирования шаблона -->
+<div class="modal-overlay" id="templateModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="templateModalTitle">Добавить шаблон</h3>
+      <button class="modal-close" onclick="closeModalById('templateModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="templateForm">
+        <input type="hidden" id="templateId"/>
+        <div class="form-group">
+          <label class="form-label">Название шаблона <span style="color:var(--red)">*</span></label>
+          <input type="text" class="form-input" id="templateName" placeholder="Например: Приветствие" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Текст сообщения <span style="color:var(--red)">*</span></label>
+          <textarea class="form-textarea" id="templateText" placeholder="Введите текст сообщения..." style="min-height:150px" required></textarea>
+          <div class="form-hint">Доступные переменные: {{имя}}, {{полное_имя}}, {{фамилия}}, {{телефон}}, {{адрес}}, {{день_рождения}}</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+          <button type="button" class="btn btn-secondary" onclick="closeModalById('templateModal')">Отмена</button>
+          <button type="submit" class="btn btn-primary" id="saveTemplateBtn">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/app.js"></script>
+<script src="/js/templates.js"></script>
+</body>
+</html>

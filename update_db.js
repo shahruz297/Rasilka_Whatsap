@@ -1,6 +1,13 @@
-const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database('./database/rasilka.db');
-db.run('UPDATE settings SET value = ? WHERE key = ?', ['Уважаемый(ая) {{first_name}}! От всей души поздравляем Вас с днем рождения! 🎉', 'birthday_message'], () => {
-    db.close();
-    console.log('updated');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+
+const dbPath = path.join(__dirname, 'database', 'rasilka.db');
+const db = new sqlite3.Database(dbPath);
+
+db.serialize(() => {
+  db.run(`UPDATE tariff_plans SET name = 'Стартовый', description = 'Возможность отправки 500 сообщений в день' WHERE name = 'Бастапқы'`);
+  db.run(`UPDATE tariff_plans SET name = 'Стандарт', description = 'Возможность отправки 1000 сообщений в день' WHERE name = 'Стандарт'`);
+  db.run(`UPDATE tariff_plans SET name = 'Премиум', description = 'Возможность отправки 2000 сообщений в день' WHERE name = 'Премиум'`);
+  db.run(`UPDATE tariff_plans SET name = 'Безлимитный', description = 'Безлимитная рассылка (суперадмин)' WHERE name = 'Шексіз'`);
+  console.log('Database updated to Russian');
 });

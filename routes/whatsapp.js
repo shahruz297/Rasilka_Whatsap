@@ -2,16 +2,56 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const db = require('../database/db');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const { MessageMedia } = require('whatsapp-web.js');
+
+// Multer configuration for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 16 * 1024 * 1024 }, // 16MB max
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Недопустимый формат файла. Поддерживаются: JPG, PNG, GIF, WEBP'));
+    }
+  }
+});
 
 // Active sending jobs: campaignId -> { cancel: bool }
 const activeJobs = {};
 
-function getSettings() {
+function getSettings(adminId) {
   return new Promise((resolve, reject) => {
-    db.all('SELECT key, value FROM settings', [], (err, rows) => {
+    db.all('SELECT key, value FROM settings WHERE admin_id = ?', [adminId], (err, rows) => {
       if (err) return reject(err);
       const s = {};
       rows.forEach(r => { s[r.key] = r.value; });
+      // Fallback to global defaults
+      if (Object.keys(s).length === 0) {
+        db.all('SELECT key, value FROM settings WHERE admin_id = 0', [], (err2, defaultRows) => {
+          if (err2) return reject(err2);
+          const d = {};
+          (defaultRows || []).forEach(r => { d[r.key] = r.value; });
+          resolve(d);
+        });
+        return;
+      }
       resolve(s);
     });
   });
@@ -28,9 +68,7 @@ function randomInterval(min, max) {
 function personalizeMessage(template, client) {
   const months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   let msg = template;
-  // {{полное_имя}} = толық аты-жөні (Наргиза Исаханова)
   msg = msg.replace(/{{полное_имя}}/gi, `${client.first_name} ${client.last_name}`);
-  // {{имя}} = бірінші аты ғана (Наргиза) — адресаттау үшін
   msg = msg.replace(/{{имя}}/gi, client.first_name);
   msg = msg.replace(/{{first_name}}/gi, client.first_name);
   msg = msg.replace(/{{фамилия}}/gi, client.last_name);
@@ -48,59 +86,120 @@ function personalizeMessage(template, client) {
 
 const whatsappClient = require('../whatsappClient');
 
-async function sendWhatsAppMessage(toPhone, message) {
-  const client = whatsappClient.getClient();
-  if (!client || whatsappClient.getStatus().status !== 'CONNECTED') {
+async function sendWhatsAppMessage(toPhone, message, adminId, imagePath) {
+  const client = whatsappClient.getClient(adminId);
+  const statusData = whatsappClient.getStatus(adminId);
+  if (!client || statusData.status !== 'CONNECTED') {
     throw new Error('WhatsApp клиент не подключен.');
   }
   
-  // Format phone number for WhatsApp Web (e.g. 77011234567@c.us)
   let phone = toPhone.replace(/[^0-9]/g, '');
   if (phone.startsWith('8')) phone = '7' + phone.substring(1);
   const chatId = `${phone}@c.us`;
 
-  await client.sendMessage(chatId, message);
+  if (imagePath && fs.existsSync(imagePath)) {
+    // Send image (with or without caption)
+    const media = MessageMedia.fromFilePath(imagePath);
+    if (message && message.trim()) {
+      await client.sendMessage(chatId, media, { caption: message });
+    } else {
+      await client.sendMessage(chatId, media);
+    }
+  } else if (message && message.trim()) {
+    // Send text only
+    await client.sendMessage(chatId, message);
+  } else {
+    throw new Error('Нет сообщения или изображения для отправки.');
+  }
+
   return { success: true };
 }
 
-// POST /api/whatsapp/send — start campaign
-router.post('/send', async (req, res) => {
+// POST /api/whatsapp/send — start campaign (supports multipart/form-data with image)
+router.post('/send', upload.single('image'), async (req, res) => {
   try {
-    const { campaign_name, message, client_ids } = req.body;
-    if (!message || !client_ids || !client_ids.length) {
-      return res.status(400).json({ error: 'Сообщение и список клиентов обязательны' });
+    const adminId = req.user.id;
+    const message = req.body.message || '';
+    const imagePath = req.file ? req.file.path : null;
+    
+    // Parse client_ids from FormData (comes as JSON string)
+    let client_ids = req.body.client_ids;
+    if (typeof client_ids === 'string') {
+      try { client_ids = JSON.parse(client_ids); } catch(e) { client_ids = []; }
+    }
+    if (!client_ids || !client_ids.length) {
+      return res.status(400).json({ error: 'Список клиентов обязателен' });
+    }
+    if (!message.trim() && !imagePath) {
+      return res.status(400).json({ error: 'Необходимо указать текст сообщения или загрузить изображение' });
     }
 
-    const settings = await getSettings();
+    const settings = await getSettings(adminId);
     const batchSize = parseInt(req.body.batch_size) || parseInt(settings.batch_size) || 70;
     const intervalMin = parseInt(req.body.interval_min) || parseInt(settings.interval_min) || 10;
     const intervalMax = parseInt(req.body.interval_max) || parseInt(settings.interval_max) || 30;
     const batchInterval = parseInt(req.body.batch_interval) || parseInt(settings.batch_interval) || 120;
 
-    // Fetch clients
+    // Fetch clients (только для этого админа)
     const placeholders = client_ids.map(() => '?').join(',');
+    const scopeWhere = req.user.role === 'superadmin' ? '' : ' AND admin_id = ?';
+    const scopeParams = req.user.role === 'superadmin' ? [] : [adminId];
     const clients = await new Promise((resolve, reject) => {
-      db.all(`SELECT * FROM clients WHERE id IN (${placeholders})`, client_ids, (err, rows) => {
+      db.all(`SELECT * FROM clients WHERE id IN (${placeholders})${scopeWhere}`, [...client_ids, ...scopeParams], (err, rows) => {
         if (err) reject(err); else resolve(rows);
       });
     });
 
-    if (!clients.length) return res.status(400).json({ error: 'Клиенты не найдены' });
+    if (!clients.length) return res.status(400).json({ error: 'Клиенттер табылмады' });
 
-    // Create campaign record
+    // ===== ПРОВЕРКА ЛИМИТА ТАРИФА =====
+    const today = new Date().toISOString().split('T')[0];
+    const tariffInfo = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT a.tariff_id, t.daily_limit 
+         FROM admins a LEFT JOIN tariff_plans t ON a.tariff_id = t.id 
+         WHERE a.id = ?`,
+        [adminId],
+        (err, row) => { if (err) reject(err); else resolve(row); }
+      );
+    });
+
+    if (tariffInfo && tariffInfo.tariff_id) {
+      const todayUsage = await new Promise((resolve, reject) => {
+        db.get('SELECT sent_count FROM daily_usage WHERE admin_id = ? AND date = ?',
+          [adminId, today], (err, row) => { if (err) reject(err); else resolve(row?.sent_count || 0); });
+      });
+      const remaining = tariffInfo.daily_limit - todayUsage;
+      if (clients.length > remaining) {
+        return res.status(400).json({
+          error: `Недостаточно лимита тарифа! Сегодня отправлено: ${todayUsage}, лимит: ${tariffInfo.daily_limit}, осталось: ${remaining}. Вы выбрали ${clients.length} клиентов.`,
+          limit_exceeded: true,
+          today_sent: todayUsage,
+          daily_limit: tariffInfo.daily_limit,
+          remaining: remaining
+        });
+      }
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(400).json({ error: 'Тариф не назначен. Обратитесь к суперадмину.' });
+    }
+
+    // Create campaign record (with image_path)
+    const campaignName = req.body.campaign_name || `Кампания ${new Date().toLocaleDateString('ru-RU')}`;
+    const relativeImagePath = imagePath ? `/uploads/${path.basename(imagePath)}` : null;
+    
     const campaignId = await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO campaigns (name, message, total_count, status, batch_size, interval_min, interval_max, batch_interval, started_at)
-         VALUES (?, ?, ?, 'running', ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-        [campaign_name || `Кампания ${new Date().toLocaleDateString('ru-RU')}`, message, clients.length, batchSize, intervalMin, intervalMax, batchInterval],
+        `INSERT INTO campaigns (name, message, total_count, status, batch_size, interval_min, interval_max, batch_interval, admin_id, image_path, started_at)
+         VALUES (?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [campaignName, message, clients.length, batchSize, intervalMin, intervalMax, batchInterval, adminId, relativeImagePath],
         function(err) { if (err) reject(err); else resolve(this.lastID); }
       );
     });
 
     // Create log entries
-    const logStmt = db.prepare(`INSERT INTO campaign_logs (campaign_id, client_id, phone, client_name, status) VALUES (?, ?, ?, ?, 'pending')`);
+    const logStmt = db.prepare(`INSERT INTO campaign_logs (campaign_id, client_id, phone, client_name, status, admin_id) VALUES (?, ?, ?, ?, 'pending', ?)`);
     clients.forEach(c => {
-      logStmt.run(campaignId, c.id, c.phone, `${c.first_name} ${c.last_name}`);
+      logStmt.run(campaignId, c.id, c.phone, `${c.first_name} ${c.last_name}`, adminId);
     });
     logStmt.finalize();
 
@@ -143,12 +242,17 @@ router.post('/send', async (req, res) => {
           let errorMsg = null;
 
           try {
-            const statusData = whatsappClient.getStatus();
+            const statusData = whatsappClient.getStatus(adminId);
             if (statusData.status !== 'CONNECTED') {
-              throw new Error('WhatsApp қосылмаған. Алдымен WhatsApp бетінен қосылыңыз.');
+              throw new Error('WhatsApp не подключен. Сначала подключитесь на странице WhatsApp.');
             }
-            await sendWhatsAppMessage(client.phone, personalMsg);
+            await sendWhatsAppMessage(client.phone, personalMsg, adminId, imagePath);
             sentCount++;
+            // Обновить использование тарифа
+            const sendDate = new Date().toISOString().split('T')[0];
+            db.run(`INSERT INTO daily_usage (admin_id, date, sent_count) VALUES (?, ?, 1)
+                    ON CONFLICT(admin_id, date) DO UPDATE SET sent_count = sent_count + 1`,
+              [adminId, sendDate]);
           } catch (err) {
             status = 'failed';
             errorMsg = err.response?.data?.error?.message || err.message;
@@ -213,7 +317,7 @@ router.post('/cancel/:id', (req, res) => {
     activeJobs[id].cancel = true;
     res.json({ success: true, message: 'Отправка остановлена' });
   } else {
-    res.status(404).json({ error: 'Активные отправки не найдены' });
+    res.status(404).json({ error: 'Активные рассылки не найдены' });
   }
 });
 
@@ -224,18 +328,20 @@ router.get('/active', (req, res) => {
 
 // GET /api/whatsapp/status
 router.get('/status', (req, res) => {
-  res.json(whatsappClient.getStatus());
+  const adminId = req.user.id;
+  res.json(whatsappClient.getStatus(adminId));
 });
 
 // POST /api/whatsapp/connect — start connecting (show QR)
 router.post('/connect', async (req, res) => {
   try {
-    const current = whatsappClient.getStatus();
+    const adminId = req.user.id;
+    const current = whatsappClient.getStatus(adminId);
     if (current.status === 'CONNECTED') {
-      return res.json({ success: true, message: 'Уже подключен' });
+      return res.json({ success: true, message: 'Подключено' });
     }
-    whatsappClient.initialize();
-    res.json({ success: true, message: 'Подключение начато, ожидайте QR код' });
+    whatsappClient.initialize(adminId);
+    res.json({ success: true, message: 'Подключение начато, ожидайте QR-код' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -244,7 +350,8 @@ router.post('/connect', async (req, res) => {
 // POST /api/whatsapp/disconnect
 router.post('/disconnect', async (req, res) => {
   try {
-    await whatsappClient.logout();
+    const adminId = req.user.id;
+    await whatsappClient.logout(adminId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -252,4 +359,3 @@ router.post('/disconnect', async (req, res) => {
 });
 
 module.exports = router;
-

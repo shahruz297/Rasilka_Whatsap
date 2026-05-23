@@ -1,9 +1,16 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
 const cors = require('cors');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
+// Create uploads directory
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Init DB
 require('./database/db');
@@ -14,6 +21,9 @@ const { startScheduler } = require('./scheduler');
 // Load WhatsApp Client module
 const whatsappClient = require('./whatsappClient');
 
+// Auth middleware
+const { requireAuth, requireSuperAdmin } = require('./middleware/auth');
+
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -21,26 +31,61 @@ const wss = new WebSocket.Server({ server });
 app.set('wss', wss);
 
 // Middleware
-app.use(cors());
+app.use(cors({ credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'rasilka_default_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 күн
+    httpOnly: true,
+    sameSite: 'lax'
+  }
+}));
+
+// Static files (login page кіру керек)
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
-app.use('/api/clients', require('./routes/clients'));
-app.use('/api/campaigns', require('./routes/campaigns'));
-app.use('/api/settings', require('./routes/settings'));
-app.use('/api/whatsapp', require('./routes/whatsapp'));
+// Auth routes (логин бетіне кіру үшін auth қажет емес)
+app.use('/api/auth', require('./routes/auth'));
 
-// Serve HTML pages
-const pages = ['clients', 'send', 'campaigns', 'settings'];
+// Login page
+app.get('/login', (req, res) => {
+  if (req.session && req.session.user) {
+    return res.redirect('/');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Қорғалған API routes
+app.use('/api/clients', requireAuth, require('./routes/clients'));
+app.use('/api/campaigns', requireAuth, require('./routes/campaigns'));
+app.use('/api/settings', requireAuth, require('./routes/settings'));
+app.use('/api/whatsapp', requireAuth, require('./routes/whatsapp'));
+app.use('/api/tariffs', requireAuth, require('./routes/tariffs'));
+app.use('/api/templates', requireAuth, require('./routes/templates'));
+app.use('/api/admin-panel', require('./routes/admin-panel'));
+
+// Қорғалған HTML pages
+const pages = ['clients', 'send', 'campaigns', 'settings', 'tariffs', 'templates'];
 pages.forEach(p => {
-  app.get(`/${p}`, (req, res) => {
+  app.get(`/${p}`, requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', `${p}.html`));
   });
 });
 
-app.get('/', (req, res) => {
+// Admin panel page — тек суперадмин
+app.get('/admin-panel', requireSuperAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-panel.html'));
+});
+
+// Dashboard — қорғалған
+app.get('/', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -56,13 +101,19 @@ wss.on('connection', (ws) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`\n<i class="ph-duotone ph-check-circle" style="font-size: 1.1em; vertical-align: middle; color: var(--green);"></i> Сервер запущен: http://localhost:${PORT}`);
-  console.log(`<i class="ph-duotone ph-device-mobile" style="font-size: 1.1em; vertical-align: middle;"></i> Система WhatsApp-рассылки готова!\n`);
-  
-  // Start background jobs
-  startScheduler();
-  
-  // Auto-connect WhatsApp if saved session exists
-  whatsappClient.autoStart();
+const db = require('./database/db');
+
+db.initPromise.then(() => {
+  server.listen(PORT, () => {
+    console.log(`\n✅ Сервер запущен: http://localhost:${PORT}`);
+    console.log(`📱 Система WhatsApp-рассылки готова!\n`);
+    
+    // Start background jobs
+    startScheduler();
+    
+    // Auto-connect WhatsApp if saved session exists
+    whatsappClient.autoStart();
+  });
+}).catch(err => {
+  console.error("Database initialization failed:", err);
 });

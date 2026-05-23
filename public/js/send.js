@@ -5,6 +5,115 @@ let selectedClientIds = new Set();
 let currentCampaignId = null;
 let sendingActive = false;
 let countdownInterval = null;
+let selectedImageFile = null;
+let allTemplates = [];
+
+// ===== IMAGE UPLOAD =====
+function initImageUpload() {
+  const zone = document.getElementById('imageUploadZone');
+  if (!zone) return;
+
+  // Prevent click on remove button from triggering file input
+  zone.addEventListener('click', (e) => {
+    if (e.target.closest('.upload-remove-btn')) {
+      e.stopPropagation();
+      return;
+    }
+  });
+
+  // Drag & drop events
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    zone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    zone.addEventListener(eventName, () => {
+      zone.classList.add('drag-over');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    zone.addEventListener(eventName, () => {
+      zone.classList.remove('drag-over');
+    });
+  });
+
+  zone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      processImageFile(files[0]);
+    }
+  });
+}
+
+function handleImageSelect(event) {
+  const file = event.target.files[0];
+  if (file) {
+    processImageFile(file);
+  }
+}
+
+function processImageFile(file) {
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    showToast('Недопустимый формат файла. Поддерживаются: JPG, PNG, GIF, WEBP', 'error');
+    return;
+  }
+
+  // Validate file size (16MB)
+  if (file.size > 16 * 1024 * 1024) {
+    showToast('Файл слишком большой. Максимальный размер: 16 МБ', 'error');
+    return;
+  }
+
+  selectedImageFile = file;
+
+  // Show preview in upload zone
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('uploadPreviewImg').src = e.target.result;
+    document.getElementById('uploadFileName').textContent = file.name;
+    document.getElementById('uploadFileSize').textContent = formatFileSize(file.size);
+    document.getElementById('uploadPlaceholder').style.display = 'none';
+    document.getElementById('uploadPreview').style.display = 'flex';
+
+    // Show in WhatsApp preview
+    document.getElementById('previewImage').src = e.target.result;
+    document.getElementById('previewImageWrap').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+
+  updatePreview();
+  showToast('Изображение загружено', 'success', 2000);
+}
+
+function removeImage(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  selectedImageFile = null;
+  document.getElementById('imageFileInput').value = '';
+  document.getElementById('uploadPlaceholder').style.display = '';
+  document.getElementById('uploadPreview').style.display = 'none';
+  document.getElementById('uploadPreviewImg').src = '';
+
+  // Hide from WhatsApp preview
+  document.getElementById('previewImageWrap').style.display = 'none';
+  document.getElementById('previewImage').src = '';
+
+  updatePreview();
+  showToast('Изображение удалено', 'warning', 2000);
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' Б';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
+}
 
 // ===== LOAD CLIENTS =====
 async function loadClients() {
@@ -116,7 +225,17 @@ function updatePreview() {
       .replace(/{{день_рождения}}/gi, birthday);
   }
 
-  preview.textContent = previewText || 'Текст сообщения появится здесь...';
+  // Show appropriate preview text
+  if (previewText) {
+    preview.textContent = previewText;
+    preview.style.display = '';
+  } else if (selectedImageFile) {
+    preview.textContent = '';
+    preview.style.display = 'none';
+  } else {
+    preview.textContent = 'Текст сообщения появится здесь...';
+    preview.style.display = '';
+  }
 
   // Show preview label: whose data is used
   const previewLabel = document.getElementById('previewClientLabel');
@@ -180,8 +299,26 @@ function updateSummary() {
 // ===== SEND =====
 async function startSending() {
   const message = document.getElementById('messageText').value.trim();
-  if (!message) { showToast('Введите текст сообщения', 'warning'); return; }
+  const hasImage = !!selectedImageFile;
+
+  if (!message && !hasImage) {
+    showToast('Добавьте текст сообщения или изображение', 'warning');
+    return;
+  }
   if (!selectedClientIds.size) { showToast('Выберите хотя бы одного клиента', 'warning'); return; }
+
+  // Проверка лимита тарифа
+  try {
+    const tariff = await apiGet('/api/tariffs/my');
+    if (tariff.tariff_id && tariff.remaining < selectedClientIds.size) {
+      showToast(`Недостаточно лимита тарифа! Осталось: ${tariff.remaining}, выбрано: ${selectedClientIds.size}`, 'error', 6000);
+      return;
+    }
+    if (!tariff.tariff_id && currentUser && currentUser.role !== 'superadmin') {
+      showToast('Тариф не назначен. Обратитесь к суперадмину.', 'error', 6000);
+      return;
+    }
+  } catch(e) {}
 
   const campaignName = document.getElementById('campaignName').value.trim() ||
     `Кампания ${new Date().toLocaleDateString('ru-RU')}`;
@@ -190,16 +327,32 @@ async function startSending() {
   btn.disabled = true; btn.innerHTML = '<span><i class="ph-duotone ph-hourglass-medium" style="font-size: 1.1em; vertical-align: middle;"></i></span> Запуск...';
 
   try {
-    const data = await apiPost('/api/whatsapp/send', {
-      campaign_name: campaignName,
-      message,
-      client_ids: Array.from(selectedClientIds),
-      batch_size: parseInt(document.getElementById('batchSize').value) || 70,
-      interval_min: parseInt(document.getElementById('intervalMin').value) || 10,
-      interval_max: parseInt(document.getElementById('intervalMax').value) || 30,
-      batch_interval: parseInt(document.getElementById('batchInterval').value) || 120,
+    // Use FormData for multipart upload
+    const formData = new FormData();
+    formData.append('campaign_name', campaignName);
+    formData.append('message', message);
+    formData.append('client_ids', JSON.stringify(Array.from(selectedClientIds)));
+    formData.append('batch_size', parseInt(document.getElementById('batchSize').value) || 70);
+    formData.append('interval_min', parseInt(document.getElementById('intervalMin').value) || 10);
+    formData.append('interval_max', parseInt(document.getElementById('intervalMax').value) || 30);
+    formData.append('batch_interval', parseInt(document.getElementById('batchInterval').value) || 120);
+
+    if (selectedImageFile) {
+      formData.append('image', selectedImageFile);
+    }
+
+    const res = await fetch('/api/whatsapp/send', {
+      method: 'POST',
+      body: formData
     });
 
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Ошибка');
+    }
+
+    const data = await res.json();
     currentCampaignId = data.campaign_id;
     sendingActive = true;
     openSendingOverlay(data.total);
@@ -222,7 +375,9 @@ function openSendingOverlay(total) {
   document.getElementById('lastAction').textContent = 'Отправка началась...';
   document.getElementById('waitingCountdown').style.display = 'none';
   document.getElementById('sendingTitle').textContent = 'Отправка...';
-  document.getElementById('sendingSubtitle').textContent = 'Сообщения отправляются, ожидайте...';
+  document.getElementById('sendingSubtitle').textContent = selectedImageFile
+    ? 'Сообщения с изображением отправляются, ожидайте...'
+    : 'Сообщения отправляются, ожидайте...';
   document.getElementById('sendingIcon').textContent = '📤';
   document.getElementById('cancelBtn').style.display = 'inline-flex';
   document.getElementById('viewCampaignBtn').style.display = 'none';
@@ -331,6 +486,39 @@ function onCampaignDone(data) {
     isSuccess ? 'success' : 'warning');
 }
 
+// ===== TEMPLATES =====
+async function loadTemplates() {
+  try {
+    allTemplates = await apiGet('/api/templates');
+    const select = document.getElementById('templateSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">-- Выбрать шаблон --</option>';
+    
+    allTemplates.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name;
+      select.appendChild(opt);
+    });
+  } catch(e) {
+    console.error('Ошибка загрузки шаблонов:', e);
+  }
+}
+
+function applyTemplate() {
+  const select = document.getElementById('templateSelect');
+  const id = parseInt(select.value);
+  if (!id) return;
+  
+  const template = allTemplates.find(t => t.id === id);
+  if (template) {
+    const ta = document.getElementById('messageText');
+    ta.value = template.text;
+    updatePreview();
+  }
+}
+
 // ===== SETTINGS LOAD =====
 async function loadSettings() {
   try {
@@ -347,4 +535,6 @@ async function loadSettings() {
 document.addEventListener('DOMContentLoaded', () => {
   loadClients();
   loadSettings();
+  loadTemplates();
+  initImageUpload();
 });

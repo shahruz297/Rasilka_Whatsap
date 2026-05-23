@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="kk">
+<html lang="ru">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard — WhatsApp Рассылка</title>
-  <meta name="description" content="WhatsApp рассылка жүйесі — клиенттерге хабарлама жіберу платформасы"/>
+  <meta name="description" content="Платформа для рассылки сообщений WhatsApp клиентам"/>
   <link rel="stylesheet" href="/css/style.css"/>
   <script>
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -19,31 +19,15 @@
     <div class="logo-icon"><i class="ph-duotone ph-device-mobile" style="font-size:1.1em;vertical-align:middle;"></i></div>
     <div class="logo-text">
       <span class="logo-title">WA Рассылка</span>
-      <span class="logo-sub">Платформа WhatsApp</span>
+      <span class="logo-sub" id="sidebarShopName">Загрузка...</span>
     </div>
   </div>
-  <nav class="sidebar-nav">
-    <a href="/" class="nav-item active" id="nav-dashboard">
-      <span class="nav-icon"><i class="ph-duotone ph-chart-bar" style="font-size:1.1em;vertical-align:middle;"></i></span> Dashboard
-    </a>
-    <a href="/settings" class="nav-item" id="nav-settings">
-      <span class="nav-icon"><i class="ph-duotone ph-whatsapp-logo" style="font-size:1.1em;vertical-align:middle;"></i></span> WhatsApp
-    </a>
-    <a href="/clients" class="nav-item" id="nav-clients">
-      <span class="nav-icon"><i class="ph-duotone ph-users" style="font-size:1.1em;vertical-align:middle;"></i></span> Клиенты
-    </a>
-    <a href="/send" class="nav-item" id="nav-send">
-      <span class="nav-icon"><i class="ph-duotone ph-rocket-launch" style="font-size:1.1em;vertical-align:middle;"></i></span> Отправить рассылку
-    </a>
-    <a href="/campaigns" class="nav-item" id="nav-campaigns">
-      <span class="nav-icon"><i class="ph-duotone ph-clipboard-text" style="font-size:1.1em;vertical-align:middle;"></i></span> История
-    </a>
-  </nav>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
   <div class="sidebar-footer">
-    <div class="ws-status">
-      <div class="ws-dot" id="wsDot"></div>
-      <span id="wsLabel">Подключение...</span>
-    </div>
+    <div class="ws-status"><div class="ws-dot" id="wsDot"></div><span id="wsLabel">Подключение...</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="handleLogout()" style="width:100%;justify-content:center;margin-top:8px;color:var(--red)">
+      <i class="ph-duotone ph-sign-out" style="font-size:1.1em;vertical-align:middle;"></i> Выйти
+    </button>
   </div>
 </aside>
 
@@ -59,7 +43,7 @@
     <div class="topbar-actions">
       <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" title="Сменить тему"><i class="ph-duotone ph-sun" style="font-size:1.1em;vertical-align:middle;"></i></button>
       <a href="/send" class="btn btn-primary">
-        <span><i class="ph-duotone ph-rocket-launch" style="font-size:1.1em;vertical-align:middle;"></i></span> Отправить
+        <span><i class="ph-duotone ph-rocket-launch" style="font-size:1.1em;vertical-align:middle;"></i></span> <span class="btn-text">Отправить</span>
       </a>
     </div>
   </header>
